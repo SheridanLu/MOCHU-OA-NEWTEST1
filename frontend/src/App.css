@@ -1,0 +1,565 @@
+/* 主布局 */
+.main-layout {
+  display: flex;
+  min-height: 100vh;
+  background: #f0f2f5;
+}
+
+/* 侧边栏 */
+.sidebar {
+  width: 240px;
+  background: #001529;
+  color: #fff;
+  transition: width 0.3s;
+  position: fixed;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  z-index: 100;
+  overflow-y: auto;
+}
+
+.sidebar.collapsed {
+  width: 80px;
+}
+
+.sidebar-header {
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+  background: #002140;
+  border-bottom: 1px solid #002140;
+}
+
+.sidebar-header h2 {
+  color: #fff;
+  margin: 0;
+  font-size: 18px;
+  white-space: nowrap;
+}
+
+.toggle-btn {
+  background: transparent;
+  border: none;
+  color: #fff;
+  cursor: pointer;
+  padding: 4px 8px;
+  font-size: 16px;
+}
+
+.sidebar-nav {
+  padding: 8px 0;
+}
+
+.menu-group {
+  margin-bottom: 4px;
+}
+
+.menu-item, .menu-title {
+  display: flex;
+  align-items: center;
+  padding: 12px 24px;
+  color: rgba(255, 255, 255, 0.65);
+  cursor: pointer;
+  transition: all 0.3s;
+  text-decoration: none;
+}
+
+.menu-item:hover, .menu-title:hover {
+  color: #fff;
+  background: #1890ff;
+}
+
+.menu-item.active, .menu-child.active {
+  color: #fff;
+  background: #1890ff;
+}
+
+.menu-icon {
+  font-size: 16px;
+  margin-right: 10px;
+}
+
+.sidebar.collapsed .menu-icon {
+  margin-right: 0;
+  text-align: center;
+  width: 100%;
+}
+
+.menu-name {
+  flex: 1;
+}
+
+.menu-arrow {
+  font-size: 12px;
+  transition: transform 0.3s;
+}
+
+.menu-title.open .menu-arrow {
+  transform: rotate(90deg);
+}
+
+.menu-children {
+  background: #000c17;
+}
+
+.menu-child {
+  display: block;
+  padding: 10px 24px 10px 50px;
+  color: rgba(255, 255, 255, 0.65);
+  text-decoration: none;
+  transition: all 0.3s;
+}
+
+.menu-child:hover {
+  color: #fff;
+}
+
+/* 主内容区 */
+.main-content {
+  flex: 1;
+  margin-left: 240px;
+  transition: margin-left 0.3s;
+  display: flex;
+  flex-direction: column;
+}
+
+.main-content.expanded {
+  margin-left: 80px;
+}
+
+.main-header {
+  height: 64px;
+  background: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 24px;
+  box-shadow: 0 1px 4px rgba(0, 21, 41, 0.08);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.header-left h1 {
+  margin: 0;
+  font-size: 20px;
+  color: #333;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.user-info {
+  color: #666;
+}
+
+.logout-btn {
+  padding: 6px 16px;
+  background: #f0f0f0;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.logout-btn:hover {
+  background: #ff4d4f;
+  color: #fff;
+}
+
+.main-body {
+  flex: 1;
+  padding: 24px;
+  overflow-y: auto;
+}
+
+/* 首页 */
+.home-page {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.welcome-section {
+  text-align: center;
+  padding: 40px 0;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 8px;
+  color: #fff;
+  margin-bottom: 24px;
+}
+
+.welcome-section h2 {
+  margin: 0 0 8px 0;
+  font-size: 28px;
+}
+
+.welcome-section p {
+  margin: 0;
+  opacity: 0.9;
+}
+
+.quick-actions {
+  background: #fff;
+  border-radius: 8px;
+  padding: 24px;
+  margin-bottom: 24px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.quick-actions h3 {
+  margin: 0 0 16px 0;
+  font-size: 16px;
+  color: #333;
+}
+
+.action-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 16px;
+}
+
+.action-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 24px;
+  background: #f5f5f5;
+  border-radius: 8px;
+  text-decoration: none;
+  color: #333;
+  transition: all 0.3s;
+}
+
+.action-card:hover {
+  background: #e6f7ff;
+  transform: translateY(-4px);
+  box-shadow: 0 4px 12px rgba(24, 144, 255, 0.2);
+}
+
+.action-icon {
+  font-size: 32px;
+  margin-bottom: 8px;
+}
+
+.action-name {
+  font-size: 14px;
+  font-weight: 500;
+  margin-bottom: 4px;
+}
+
+.action-desc {
+  font-size: 12px;
+  color: #999;
+}
+
+/* 业务流程 */
+.business-flow {
+  background: #fff;
+  border-radius: 8px;
+  padding: 24px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.business-flow h3 {
+  margin: 0 0 16px 0;
+  font-size: 16px;
+  color: #333;
+}
+
+.flow-steps {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.flow-step {
+  padding: 12px 20px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: #fff;
+  border-radius: 20px;
+  font-size: 14px;
+}
+
+.flow-arrow {
+  color: #999;
+  font-size: 18px;
+}
+
+/* 移动端菜单按钮 */
+.mobile-menu-btn {
+  font-size: 18px;
+  margin-right: 8px;
+}
+
+/* 移动端抽屉样式 */
+.mobile-drawer .ant-drawer-body {
+  padding: 0 !important;
+  background: #001529;
+}
+
+.mobile-menu {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: #001529;
+  color: #fff;
+}
+
+.mobile-menu-header {
+  padding: 20px 16px;
+  background: #002140;
+  border-bottom: 1px solid #002140;
+}
+
+.mobile-menu-header h3 {
+  margin: 0 0 4px 0;
+  color: #fff;
+}
+
+.mobile-menu-header .user-name {
+  color: rgba(255, 255, 255, 0.65);
+  font-size: 12px;
+}
+
+.mobile-menu-nav {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 0;
+}
+
+.mobile-menu-group {
+  margin-bottom: 4px;
+}
+
+.mobile-menu-item, .mobile-menu-title {
+  display: flex;
+  align-items: center;
+  padding: 12px 16px;
+  color: rgba(255, 255, 255, 0.65);
+  cursor: pointer;
+  transition: all 0.3s;
+  text-decoration: none;
+}
+
+.mobile-menu-item:hover, .mobile-menu-title:hover {
+  color: #fff;
+  background: #1890ff;
+}
+
+.mobile-menu-icon {
+  font-size: 16px;
+  margin-right: 10px;
+}
+
+.mobile-menu-children {
+  background: #000c17;
+}
+
+.mobile-menu-child {
+  display: block;
+  padding: 10px 16px 10px 42px;
+  color: rgba(255, 255, 255, 0.65);
+  text-decoration: none;
+  transition: all 0.3s;
+}
+
+.mobile-menu-child:hover {
+  color: #fff;
+}
+
+.mobile-menu-footer {
+  padding: 16px;
+  border-top: 1px solid #002140;
+}
+
+.mobile-logout-btn {
+  width: 100%;
+  padding: 10px;
+  background: #ff4d4f;
+  border: none;
+  color: #fff;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+/* 响应式 */
+@media (max-width: 768px) {
+  .sidebar {
+    transform: translateX(-100%);
+  }
+  
+  .sidebar.mobile-open {
+    transform: translateX(0);
+  }
+  
+  .main-content {
+    margin-left: 0;
+  }
+  
+  .flow-steps {
+    flex-direction: column;
+  }
+  
+  .flow-arrow {
+    transform: rotate(90deg);
+  }
+  
+  /* 移动端头部 */
+  .main-header {
+    padding: 0 12px;
+  }
+  
+  .header-left h1 {
+    font-size: 16px;
+  }
+  
+  .header-right .user-info {
+    display: none;
+  }
+  
+  .main-body {
+    padding: 12px;
+  }
+  
+  /* 移动端统计卡片 */
+  .ant-row {
+    flex-direction: column;
+  }
+  
+  .ant-col {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin-bottom: 12px;
+  }
+  
+  /* 移动端表格滚动 */
+  .ant-table-wrapper {
+    overflow-x: auto;
+  }
+  
+  .ant-table {
+    min-width: 600px;
+  }
+  
+  /* 移动端按钮调整 */
+  .action-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
+  .quick-actions {
+    padding: 16px;
+  }
+  
+  .business-flow {
+    padding: 16px;
+  }
+  
+  .flow-step {
+    font-size: 12px;
+    padding: 8px 12px;
+  }
+}
+
+/* 移动端菜单按钮 */
+.mobile-menu-btn {
+  font-size: 18px;
+  margin-right: 8px;
+}
+
+/* 移动端抽屉样式 */
+.mobile-drawer .ant-drawer-body {
+  padding: 0;
+}
+
+.mobile-menu {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.mobile-menu-header {
+  padding: 20px 16px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: #fff;
+}
+
+.mobile-menu-header h3 {
+  margin: 0 0 8px 0;
+  font-size: 20px;
+}
+
+.mobile-menu-header .user-name {
+  opacity: 0.9;
+  font-size: 14px;
+}
+
+.mobile-menu-nav {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 0;
+}
+
+.mobile-menu-group {
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.mobile-menu-title {
+  display: flex;
+  align-items: center;
+  padding: 12px 16px;
+  font-weight: 500;
+  color: #333;
+}
+
+.mobile-menu-title .menu-icon {
+  margin-right: 8px;
+  font-size: 16px;
+}
+
+.mobile-menu-item,
+.mobile-menu-child {
+  display: block;
+  padding: 12px 16px;
+  color: #666;
+  text-decoration: none;
+  transition: all 0.3s;
+}
+
+.mobile-menu-item:hover,
+.mobile-menu-child:hover {
+  background: #f5f5f5;
+  color: #1890ff;
+}
+
+.mobile-menu-children {
+  background: #fafafa;
+}
+
+.mobile-menu-child {
+  padding-left: 40px;
+  font-size: 14px;
+}
+
+.mobile-menu-footer {
+  padding: 16px;
+  border-top: 1px solid #f0f0f0;
+}
+
+.mobile-logout-btn {
+  width: 100%;
+  padding: 10px;
+  background: #ff4d4f;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+}
