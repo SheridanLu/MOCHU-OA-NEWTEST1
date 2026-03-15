@@ -61,9 +61,13 @@ const constructionRoutes = require('./routes/construction');
 const changeRoutes = require('./routes/change');
 // Task 57 & 58: 竣工管理路由（劳务结算 + 竣工图纸）
 const completionRoutes = require('./routes/completion');
+const progressAlertRoutes = require('./routes/progressAlert');
+const laborVisaRoutes = require('./routes/laborVisa');
+const { router: todoRoutes } = require('./routes/todo');
 // Task 60: 系统管理 - 审计日志
 const auditRoutes = require('./routes/audit');
 const announcementRoutes = require('./routes/announcement');
+const receiptRoutes = require('./routes/receipt');
 
 app.use('/api/auth', authRoutes);
 app.use('/api/departments', departmentRoutes);
@@ -88,11 +92,18 @@ app.use('/api/income-statements', incomeStatementRoutes);
 app.use('/api/payments', paymentRoutes);
 // Task 54: 施工管理 API（里程碑设置）
 app.use('/api/construction', constructionRoutes);
+app.use('/api/changes', changeRoutes);
 // Task 57 & 58: 竣工管理 API（劳务结算 + 竣工图纸）
+const overageApprovalRoutes = require('./routes/overageApproval');
+app.use('/api/overage-approvals', overageApprovalRoutes);
 app.use('/api/completion', completionRoutes);
+app.use('/api/labor-visas', laborVisaRoutes);
+app.use('/api/progress-alerts', progressAlertRoutes);
+app.use('/api/todos', todoRoutes);
 // Task 60: 系统管理 - 审计日志 API
 app.use('/api/audit', auditRoutes);
 app.use('/api/announcements', announcementRoutes);
+app.use("/api/receipts", receiptRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {

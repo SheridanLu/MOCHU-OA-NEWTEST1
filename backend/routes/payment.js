@@ -103,10 +103,11 @@ router.get('/material', (req, res) => {
   }
 
   // 获取总数
-  const countSql = sql.replace(
-    /SELECT mp\.\*,[\s\S]*?FROM/,
-    'SELECT COUNT(*) as total FROM'
-  );
+  let countSql = `SELECT COUNT(*) as total FROM material_payments mp WHERE 1=1`;
+  if (keyword) countSql += ` AND (mp.payment_no LIKE ? OR mp.supplier_name LIKE ?)`;
+  if (status && status !== 'all') countSql += ` AND mp.status = ?`;
+  if (project_id) countSql += ` AND mp.project_id = ?`;
+  if (supplier_id) countSql += ` AND mp.supplier_id = ?`;
   const countResult = db.prepare(countSql).get(...params);
   const total = countResult ? countResult.total : 0;
 
@@ -814,16 +815,16 @@ router.get('/labor', (req, res) => {
     SELECT lp.*,
            p.name as project_name,
            p.project_no,
-           is.statement_no,
-           is.period_start,
-           is.period_end,
-           is.confirmed_amount as statement_confirmed_amount,
+           ist.statement_no,
+           ist.period_start,
+           ist.period_end,
+           ist.confirmed_amount as statement_confirmed_amount,
            u.real_name as creator_name,
            au.real_name as approver_name,
            pu.real_name as payer_name
     FROM labor_payments lp
     LEFT JOIN projects p ON lp.project_id = p.id
-    LEFT JOIN income_statements is ON lp.statement_id = is.id
+    LEFT JOIN income_statements ist ON lp.statement_id = ist.id
     LEFT JOIN users u ON lp.creator_id = u.id
     LEFT JOIN users au ON lp.approved_by = au.id
     LEFT JOIN users pu ON lp.paid_by = pu.id
@@ -856,10 +857,11 @@ router.get('/labor', (req, res) => {
   }
 
   // 获取总数
-  const countSql = sql.replace(
-    /SELECT lp\.\*,[\s\S]*?FROM/,
-    'SELECT COUNT(*) as total FROM'
-  );
+  let countSql = `SELECT COUNT(*) as total FROM labor_payments lp WHERE 1=1`;
+  if (keyword) countSql += ` AND (lp.payment_no LIKE ? OR lp.payee_name LIKE ?)`;
+  if (status && status !== 'all') countSql += ` AND lp.status = ?`;
+  if (projectId) countSql += ` AND lp.project_id = ?`;
+  if (statementId) countSql += ` AND lp.statement_id = ?`;
   const countResult = db.prepare(countSql).get(...params);
   const total = countResult ? countResult.total : 0;
 
@@ -891,18 +893,18 @@ router.get('/labor/:id', (req, res) => {
     SELECT lp.*,
            p.name as project_name,
            p.project_no,
-           is.statement_no,
-           is.period_start,
-           is.period_end,
-           is.confirmed_amount as statement_confirmed_amount,
-           is.progress_amount,
-           is.progress_rate,
+           ist.statement_no,
+           ist.period_start,
+           ist.period_end,
+           ist.confirmed_amount as statement_confirmed_amount,
+           ist.progress_amount,
+           ist.progress_rate,
            u.real_name as creator_name,
            au.real_name as approver_name,
            pu.real_name as payer_name
     FROM labor_payments lp
     LEFT JOIN projects p ON lp.project_id = p.id
-    LEFT JOIN income_statements is ON lp.statement_id = is.id
+    LEFT JOIN income_statements ist ON lp.statement_id = ist.id
     LEFT JOIN users u ON lp.creator_id = u.id
     LEFT JOIN users au ON lp.approved_by = au.id
     LEFT JOIN users pu ON lp.paid_by = pu.id
@@ -928,11 +930,11 @@ router.get('/labor/:id', (req, res) => {
   // 获取对账单的劳务金额和已付款金额
   const statementInfo = db.prepare(`
     SELECT 
-      is.confirmed_amount,
+      ist.confirmed_amount,
       (SELECT COALESCE(SUM(amount), 0) FROM labor_payments 
-       WHERE statement_id = is.id AND status IN ('pending', 'approved', 'paid')) as paid_amount
-    FROM income_statements is
-    WHERE is.id = ?
+       WHERE statement_id = ist.id AND status IN ('pending', 'approved', 'paid')) as paid_amount
+    FROM income_statements ist
+    WHERE ist.id = ?
   `).get(payment.statement_id);
 
   // 劳务金额 = 确认金额的30%（可根据业务调整）
@@ -959,11 +961,11 @@ router.get('/labor/statement/:statementId/info', (req, res) => {
 
   const statement = db.prepare(`
     SELECT 
-      is.*,
+      ist.*,
       p.name as project_name
-    FROM income_statements is
-    LEFT JOIN projects p ON is.project_id = p.id
-    WHERE is.id = ? AND is.status = 'confirmed'
+    FROM income_statements ist
+    LEFT JOIN projects p ON ist.project_id = p.id
+    WHERE ist.id = ? AND ist.status = 'confirmed'
   `).get(statementId);
 
   if (!statement) {
@@ -1118,10 +1120,10 @@ router.post('/labor', checkPermission('payment:create'), (req, res) => {
       const payment = db.prepare(`
         SELECT lp.*,
                p.name as project_name,
-               is.statement_no
+               ist.statement_no
         FROM labor_payments lp
         LEFT JOIN projects p ON lp.project_id = p.id
-        LEFT JOIN income_statements is ON lp.statement_id = is.id
+        LEFT JOIN income_statements ist ON lp.statement_id = ist.id
         WHERE lp.id = ?
       `).get(paymentId);
 
@@ -1156,9 +1158,9 @@ router.put('/labor/:id', checkPermission('payment:edit'), (req, res) => {
     const transaction = db.transaction(() => {
       // 检查付款记录状态
       const payment = db.prepare(`
-        SELECT lp.*, is.confirmed_amount as statement_confirmed_amount
+        SELECT lp.*, ist.confirmed_amount as statement_confirmed_amount
         FROM labor_payments lp
-        LEFT JOIN income_statements is ON lp.statement_id = is.id
+        LEFT JOIN income_statements ist ON lp.statement_id = ist.id
         WHERE lp.id = ?
       `).get(id);
 
@@ -1205,10 +1207,10 @@ router.put('/labor/:id', checkPermission('payment:edit'), (req, res) => {
       return db.prepare(`
         SELECT lp.*,
                p.name as project_name,
-               is.statement_no
+               ist.statement_no
         FROM labor_payments lp
         LEFT JOIN projects p ON lp.project_id = p.id
-        LEFT JOIN income_statements is ON lp.statement_id = is.id
+        LEFT JOIN income_statements ist ON lp.statement_id = ist.id
         WHERE lp.id = ?
       `).get(id);
     });
@@ -1347,9 +1349,9 @@ router.post('/labor/:id/pay', checkPermission('payment:pay'), (req, res) => {
     const transaction = db.transaction(() => {
       // 获取付款记录
       const payment = db.prepare(`
-        SELECT lp.*, is.statement_no
+        SELECT lp.*, ist.statement_no
         FROM labor_payments lp
-        LEFT JOIN income_statements is ON lp.statement_id = is.id
+        LEFT JOIN income_statements ist ON lp.statement_id = ist.id
         WHERE lp.id = ?
       `).get(id);
 
@@ -1453,14 +1455,14 @@ router.get('/labor/statements/available', (req, res) => {
 
   let sql = `
     SELECT 
-      is.*,
+      ist.*,
       p.name as project_name,
       p.project_no,
       (SELECT COALESCE(SUM(amount), 0) FROM labor_payments 
-       WHERE statement_id = is.id AND status IN ('pending', 'approved', 'paid')) as paid_amount
-    FROM income_statements is
-    LEFT JOIN projects p ON is.project_id = p.id
-    WHERE is.status = 'confirmed'
+       WHERE statement_id = ist.id AND status IN ('pending', 'approved', 'paid')) as paid_amount
+    FROM income_statements ist
+    LEFT JOIN projects p ON ist.project_id = p.id
+    WHERE ist.status = 'confirmed'
   `;
   const params = [];
 
@@ -1500,13 +1502,13 @@ router.get('/labor/pending-approvals', (req, res) => {
     SELECT lp.*,
            p.name as project_name,
            p.project_no,
-           is.statement_no,
+           ist.statement_no,
            lpa.step_name,
            lpa.step,
            u.real_name as creator_name
     FROM labor_payments lp
     LEFT JOIN projects p ON lp.project_id = p.id
-    LEFT JOIN income_statements is ON lp.statement_id = is.id
+    LEFT JOIN income_statements ist ON lp.statement_id = ist.id
     LEFT JOIN labor_payment_approvals lpa ON lp.id = lpa.payment_id AND lpa.action = 'pending'
     LEFT JOIN users u ON lp.creator_id = u.id
     WHERE lp.status = 'pending'

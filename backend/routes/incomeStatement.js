@@ -315,41 +315,128 @@ router.get('/stats/overview', (req, res) => {
 /**
  * PUT /api/income-statements/:id/progress
  * 更新进度产值
- * 请求体: { progressRate, remark }
+ * 请求体: { currentPeriodValue, progressDescription, attachments, remark }
  */
 router.put('/:id/progress', (req, res) => {
   try {
     const { id } = req.params;
-    const { progressRate, remark } = req.body;
+    const { currentPeriodValue, progressDescription, attachments, remark } = req.body;
     const userId = req.user?.id;
 
     // 参数校验
-    if (progressRate === undefined || progressRate === null) {
+    if (currentPeriodValue === undefined || currentPeriodValue === null) {
       return res.status(400).json({
         success: false,
-        message: '请提供进度百分比'
+        message: '请提供当期产值'
       });
     }
 
-    const rate = parseFloat(progressRate);
-    if (isNaN(rate)) {
+    const periodValue = parseFloat(currentPeriodValue);
+    if (isNaN(periodValue) || periodValue < 0) {
       return res.status(400).json({
         success: false,
-        message: '进度百分比必须是数字'
+        message: '当期产值必须是非负数字'
       });
     }
 
-    const statement = incomeStatementService.updateProgress(
-      parseInt(id), 
-      rate, 
-      remark, 
-      userId
+    // 获取当前对账单信息
+    const statement = db.prepare(`
+      SELECT ist.*, p.id as project_id, p.contract_amount
+      FROM income_statements ist
+      LEFT JOIN projects p ON ist.project_id = p.id
+      WHERE ist.id = ?
+    `).get(parseInt(id));
+
+    if (!statement) {
+      return res.status(404).json({
+        success: false,
+        message: '对账单不存在'
+      });
+    }
+
+    // 获取前期累计回款
+    const previousReceipt = db.prepare(`
+      SELECT COALESCE(SUM(receipt_amount), 0) as total
+      FROM project_receipts
+      WHERE project_id = ? AND receipt_date < ?
+      AND status = 'confirmed'
+    `).get(statement.project_id, statement.period_start);
+
+    // 获取当期确认回款
+    const currentReceipt = db.prepare(`
+      SELECT COALESCE(SUM(receipt_amount), 0) as total
+      FROM project_receipts
+      WHERE project_id = ? AND receipt_date >= ? AND receipt_date <= ?
+      AND status = 'confirmed'
+    `).get(statement.project_id, statement.period_start, statement.period_end);
+
+    // 计算累计产值
+    const previousAccumulated = parseFloat(statement.accumulated_amount || 0);
+    const newAccumulated = previousAccumulated + periodValue;
+    const contractAmount = parseFloat(statement.contract_amount || statement.total_contract_amount || 0);
+    const progressRate = contractAmount > 0 ? (newAccumulated / contractAmount * 100) : 0;
+
+    // 更新对账单
+    db.prepare(`
+      UPDATE income_statements SET
+        progress_amount = ?,
+        accumulated_amount = ?,
+        progress_rate = ?,
+        previous_accumulated_receipt = ?,
+        current_period_receipt = ?,
+        progress_description = ?,
+        attachments = ?,
+        remark = COALESCE(?, remark),
+        updated_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `).run(
+      periodValue,
+      newAccumulated,
+      progressRate,
+      previousReceipt?.total || 0,
+      currentReceipt?.total || 0,
+      progressDescription || null,
+      attachments ? JSON.stringify(attachments) : null,
+      remark || null,
+      parseInt(id)
     );
+
+    // 记录进度历史
+    try {
+      db.prepare(`
+        INSERT INTO progress_history (
+          statement_id, progress_rate, progress_amount, accumulated_amount,
+          previous_accumulated_receipt, current_period_receipt,
+          progress_description, remark, created_by
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(
+        parseInt(id),
+        progressRate,
+        periodValue,
+        newAccumulated,
+        previousReceipt?.total || 0,
+        currentReceipt?.total || 0,
+        progressDescription || null,
+        remark || null,
+        userId
+      );
+    } catch (e) {
+      console.log('记录进度历史失败:', e.message);
+    }
+
+    // 获取更新后的记录
+    const updated = db.prepare(`
+      SELECT ist.*, 
+        p.project_no, p.name as project_name
+      FROM income_statements ist
+      LEFT JOIN projects p ON ist.project_id = p.id
+      WHERE ist.id = ?
+    `).get(parseInt(id));
 
     res.json({
       success: true,
       message: '进度更新成功',
-      data: statement
+      data: updated
     });
   } catch (error) {
     console.error('更新进度失败:', error);

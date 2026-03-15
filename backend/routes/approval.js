@@ -27,6 +27,12 @@ const {
   getStockOutPendingApprovals,
   getLaborSettlementPendingApprovals,
   getOverageApplicationPendingApprovals,
+  getLaborVisaPendingApprovals,
+  getExpenseContractPendingApprovals,
+  getStockInPendingApprovals,
+  getSporadicPurchasePendingApprovals,
+  getSiteVisaPendingApprovals,
+  getOverageApprovalPendingApprovals,
   canUserApprove,
   ApprovalStatus
 } = require('../models/approval');
@@ -118,6 +124,12 @@ router.get('/pending', (req, res) => {
     let stockOutResult = { list: [], total: 0 };
     let laborSettlementResult = { list: [], total: 0 };
     let overageResult = { list: [], total: 0 };
+    let laborVisaResult = { list: [], total: 0 };
+    let expenseContractResult = { list: [], total: 0 };
+    let stockInResult = { list: [], total: 0 };
+    let sporadicPurchaseResult = { list: [], total: 0 };
+    let siteVisaResult = { list: [], total: 0 };
+    let overageApprovalResult = { list: [], total: 0 };
     
     try { projectResult = getPendingApprovals(approvalRoles, { page, pageSize }); } catch (e) { console.error('项目审批查询失败:', e.message); }
     try { sporadicResult = getSporadicPendingApprovals(approvalRoles, { page, pageSize }); } catch (e) { console.error('零星采购审批查询失败:', e.message); }
@@ -132,6 +144,12 @@ router.get('/pending', (req, res) => {
     try { stockOutResult = getStockOutPendingApprovals(approvalRoles, { page, pageSize }); } catch (e) { console.error('出库审批查询失败:', e.message); }
     try { laborSettlementResult = getLaborSettlementPendingApprovals(approvalRoles, { page, pageSize }); } catch (e) { console.error('竣工结算审批查询失败:', e.message); }
     try { overageResult = getOverageApplicationPendingApprovals(approvalRoles, { page, pageSize }); } catch (e) { console.error('超量申请审批查询失败:', e.message); }
+    try { laborVisaResult = getLaborVisaPendingApprovals(approvalRoles, { page, pageSize }); } catch (e) { console.error('劳务签证审批查询失败:', e.message); }
+    try { expenseContractResult = getExpenseContractPendingApprovals(approvalRoles, { page, pageSize }); } catch (e) { console.error('支出合同审批查询失败:', e.message); }
+    try { stockInResult = getStockInPendingApprovals(approvalRoles, { page, pageSize }); } catch (e) { console.error('入库审批查询失败:', e.message); }
+    try { sporadicPurchaseResult = getSporadicPurchasePendingApprovals(approvalRoles, { page, pageSize }); } catch (e) { console.error('零星采购审批查询失败:', e.message); }
+    try { siteVisaResult = getSiteVisaPendingApprovals(approvalRoles, { page, pageSize }); } catch (e) { console.error('现场签证审批查询失败:', e.message); }
+    try { overageApprovalResult = getOverageApprovalPendingApprovals(approvalRoles, { page, pageSize }); } catch (e) { console.error('超量审批查询失败:', e.message); }
     
     // 合并结果
     // 处理项目审批列表，根据type字段区分不同审批类型
@@ -158,7 +176,13 @@ router.get('/pending', (req, res) => {
       ...ownerChangeResult.list.map(item => ({ ...item, approval_source: 'owner_change', source_name: '业主变更' })),
       ...stockOutResult.list.map(item => ({ ...item, approval_source: 'stock_out', source_name: '出库申请' })),
       ...laborSettlementResult.list.map(item => ({ ...item, approval_source: 'labor_settlement', source_name: '竣工结算' })),
-      ...overageResult.list.map(item => ({ ...item, approval_source: 'overage_application', source_name: '超量申请' }))
+      ...overageResult.list.map(item => ({ ...item, approval_source: 'overage_application', source_name: '超量申请' })),
+      ...laborVisaResult.list.map(item => ({ ...item, approval_source: 'labor_visa', source_name: '劳务签证' })),
+      ...expenseContractResult.list.map(item => ({ ...item, approval_source: 'expense_contract', source_name: '支出合同' })),
+      ...stockInResult.list.map(item => ({ ...item, approval_source: 'stock_in', source_name: '入库单' })),
+      ...sporadicPurchaseResult.list.map(item => ({ ...item, approval_source: 'sporadic_purchase', source_name: '零星采购' })),
+      ...siteVisaResult.list.map(item => ({ ...item, approval_source: 'site_visa', source_name: '现场签证' })),
+      ...overageApprovalResult.list.map(item => ({ ...item, approval_source: 'overage_approval', source_name: '超量审批' }))
     ];
     
     // 按创建时间排序
@@ -169,7 +193,9 @@ router.get('/pending', (req, res) => {
                   contractResult.total + batchPurchaseResult.total + materialPaymentResult.total +
                   laborPaymentResult.total + materialChangeResult.total + visaChangeResult.total +
                   ownerChangeResult.total + stockOutResult.total + laborSettlementResult.total +
-                  overageResult.total;
+                  overageResult.total + laborVisaResult.total + expenseContractResult.total +
+                  stockInResult.total + sporadicPurchaseResult.total + siteVisaResult.total +
+                  overageApprovalResult.total;
     const startIndex = (parseInt(page) - 1) * parseInt(pageSize);
     const paginatedList = allList.slice(startIndex, startIndex + parseInt(pageSize));
 
@@ -193,7 +219,13 @@ router.get('/pending', (req, res) => {
           owner_change: ownerChangeResult.total,
           stock_out: stockOutResult.total,
           labor_settlement: laborSettlementResult.total,
-          overage_application: overageResult.total
+          overage_application: overageResult.total,
+          labor_visa: laborVisaResult.total,
+          expense_contract: expenseContractResult.total,
+          stock_in: stockInResult.total,
+          sporadic_purchase: sporadicPurchaseResult.total,
+          site_visa: siteVisaResult.total,
+          overage_approval: overageApprovalResult.total,
         }
       }
     });
@@ -673,5 +705,6 @@ router.get('/my-approved', (req, res) => {
     });
   }
 });
+
 
 module.exports = router;

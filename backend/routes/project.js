@@ -154,7 +154,7 @@ router.get('/', authMiddleware, (req, res) => {
   const countSql = sql.replace(
     /SELECT p\.\*, u\.real_name as manager_name,\s*vp\.name as virtual_from_name,\s*ep\.name as converted_to_name/,
     'SELECT COUNT(*) as total'
-  ).replace(/LEFT JOIN users u[\s\S]*?LEFT JOIN projects ep[\s\S]*?WHERE/, 'WHERE');
+  ).replace(/LEFT JOIN users u.*?LEFT JOIN projects ep.*?WHERE/, 'WHERE');
   
   const countResult = db.prepare(countSql).get(...params);
   const total = countResult ? countResult.total : 0;
@@ -547,7 +547,7 @@ router.get('/virtual', authMiddleware, (req, res) => {
   const countSql = sql.replace(
     /SELECT p\.\*, u\.real_name as manager_name,\s*ep\.name as converted_to_name, ep\.project_no as converted_to_no/,
     'SELECT COUNT(*) as total'
-  ).replace(/LEFT JOIN users u[\s\S]*?LEFT JOIN projects ep[\s\S]*?WHERE/, 'WHERE');
+  ).replace(/LEFT JOIN users u.*?LEFT JOIN projects ep.*?WHERE/, 'WHERE');
   
   const countResult = db.prepare(countSql).get(...params);
   const total = countResult ? countResult.total : 0;

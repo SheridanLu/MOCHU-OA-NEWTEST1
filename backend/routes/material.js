@@ -122,7 +122,9 @@ router.post('/', checkPermission('material:create'), (req, res) => {
     supplier_id,
     remarks,
     category,
-    tax_rate
+    tax_rate,
+    warning_threshold,
+    critical_threshold
   } = req.body;
   
   console.log('解析后的字段:', { material_name, specification, unit, base_price, category });
@@ -181,8 +183,8 @@ router.post('/', checkPermission('material:create'), (req, res) => {
       INSERT INTO material_base_prices (
         material_name, specification, unit, base_price,
         effective_date, expiry_date, supplier_id, remarks,
-        created_by, status, category, tax_rate
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?)
+        created_by, status, category, tax_rate, warning_threshold, critical_threshold
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?, ?, ?)
     `).run(
       material_name.trim(),
       specification || null,
@@ -194,7 +196,9 @@ router.post('/', checkPermission('material:create'), (req, res) => {
       remarks || null,
       userId,
       category || 'material',
-      tax_rate || 13
+      tax_rate || 13,
+      warning_threshold || 1.00,
+      critical_threshold || 3.00
     );
     
     const newMaterial = db.prepare(`
@@ -232,7 +236,9 @@ router.put('/:id', checkPermission('material:edit'), (req, res) => {
     remarks,
     status,
     category,
-    tax_rate
+    tax_rate,
+    warning_threshold,
+    critical_threshold
   } = req.body;
   
   // 检查材料是否存在
@@ -271,11 +277,14 @@ router.put('/:id', checkPermission('material:edit'), (req, res) => {
           status = COALESCE(?, status),
           category = COALESCE(?, category),
           tax_rate = COALESCE(?, tax_rate),
+          warning_threshold = COALESCE(?, warning_threshold),
+          critical_threshold = COALESCE(?, critical_threshold),
           updated_at = CURRENT_TIMESTAMP
         WHERE id = ?
       `).run(
         material_name, specification, unit, base_price,
-        effective_date, expiry_date, supplier_id, remarks, status, category, tax_rate, id
+        effective_date, expiry_date, supplier_id, remarks, status, category, tax_rate, 
+        warning_threshold, critical_threshold, id
       );
     });
     
@@ -823,8 +832,8 @@ router.put('/suppliers', checkPermission('supplier:create'), (req, res) => {
     }
     
     const result = db.prepare(`
-      INSERT INTO suppliers (name, contact_person, phone, email, address, bank_name, bank_account)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO suppliers (name, contact_person, phone, email, address, bank_name, bank_account, tax_no)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       name.trim(),
       contact_person || null,
@@ -832,7 +841,8 @@ router.put('/suppliers', checkPermission('supplier:create'), (req, res) => {
       email || null,
       address || null,
       bank_name || null,
-      bank_account || null
+      bank_account || null,
+      tax_no || null
     );
     
     const newSupplier = db.prepare('SELECT * FROM suppliers WHERE id = ?').get(result.lastInsertRowid);

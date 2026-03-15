@@ -46,7 +46,8 @@ const STATUS_MAP = {
   pending: { text: '待审核', color: 'orange' },
   approved: { text: '已通过', color: 'green' },
   rejected: { text: '已拒绝', color: 'red' },
-  completed: { text: '已完成', color: 'blue' }
+  completed: { text: '已完成', color: 'blue' },
+  cancelled: { text: '已取消', color: 'gray' }
 };
 
 /**
@@ -206,6 +207,27 @@ function PurchaseListList() {
     }
   };
   
+  // 取消清单
+  const handleCancel = async (id) => {
+    try {
+      const response = await fetch(`${API_BASE}/purchase-lists/${id}/cancel`, {
+        method: 'POST',
+        headers: getAuthHeaders()
+      });
+      const result = await response.json();
+      
+      if (result.success) {
+        message.success('采购清单已取消');
+        loadLists();
+      } else {
+        message.error(result.message || '取消失败');
+      }
+    } catch (error) {
+      console.error('取消采购清单失败:', error);
+      message.error('取消采购清单失败');
+    }
+  };
+  
   // 保存清单
   const handleSave = async () => {
     try {
@@ -351,23 +373,40 @@ function PurchaseListList() {
             size="small"
             icon={<EditOutlined />}
             onClick={() => handleEdit(record)}
-            disabled={record.approval_status === 'pending_approval' || record.approval_status === 'approved'}
+            disabled={record.approval_status === 'pending_approval' || record.approval_status === 'approved' || record.status === 'cancelled'}
           >
             编辑
           </Button>
+          {/* 取消按钮 - 审批中或待审核状态可见 */}
+          {(record.approval_status === 'pending_approval' || record.status === 'pending') && (
+            <Popconfirm
+              title="确定取消此采购清单吗？"
+              onConfirm={() => handleCancel(record.id)}
+              okText="确定"
+              cancelText="取消"
+            >
+              <Button
+                type="link"
+                size="small"
+                style={{ color: '#faad14' }}
+              >
+                取消
+              </Button>
+            </Popconfirm>
+          )}
           <Popconfirm
             title="确定删除此采购清单吗？相关的物资明细也将被删除。"
             onConfirm={() => handleDelete(record.id)}
             okText="确定"
             cancelText="取消"
-            disabled={record.approval_status === 'pending_approval' || record.approval_status === 'approved'}
+            disabled={record.approval_status === 'pending_approval' || record.approval_status === 'approved' || record.status === 'cancelled'}
           >
             <Button
               type="link"
               size="small"
               danger
               icon={<DeleteOutlined />}
-              disabled={record.approval_status === 'pending_approval' || record.approval_status === 'approved'}
+              disabled={record.approval_status === 'pending_approval' || record.approval_status === 'approved' || record.status === 'cancelled'}
             >
               删除
             </Button>

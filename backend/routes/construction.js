@@ -70,7 +70,7 @@ router.get('/milestones', authMiddleware, (req, res) => {
   const countSql = sql.replace(
     /SELECT m\.\*,\s*p\.name as project_name, p\.project_no,\s*u\.real_name as creator_name/,
     'SELECT COUNT(*) as total'
-  ).replace(/LEFT JOIN projects p[\s\S]*?WHERE/, 'WHERE');
+  ).replace(/LEFT JOIN projects p.*WHERE/, 'WHERE');
   
   const countResult = db.prepare(countSql).get(...params);
   const total = countResult ? countResult.total : 0;
@@ -588,18 +588,23 @@ router.get('/projects/active', authMiddleware, (req, res) => {
 // ========== Task 55: 施工管理 - 进度填报 ==========
 
 // 进度填报编号生成
-function generateProgressNo() {
-  const now = new Date();
-  const yearMonth = now.toISOString().slice(2, 7).replace('-', '');
+function generateProgressNo(projectId) {
+  // 获取项目编号
+  const project = db.prepare('SELECT project_no FROM projects WHERE id = ?').get(projectId);
+  if (!project) {
+    throw new Error('项目不存在');
+  }
   
-  // 获取当月已有数量
+  const projectNo = project.project_no;
+  
+  // 获取该项目已有进度数量
   const count = db.prepare(`
     SELECT COUNT(*) as total FROM construction_progress 
-    WHERE progress_no LIKE ?
-  `).get(`PR${yearMonth}%`);
+    WHERE project_id = ?
+  `).get(projectId);
   
-  const seq = String((count?.total || 0) + 1).padStart(3, '0');
-  return `PR${yearMonth}${seq}`;
+  const seq = String((count?.total || 0) + 1).padStart(2, '0');
+  return `${projectNo}-PR${seq}`;
 }
 
 /**
@@ -772,8 +777,8 @@ router.post('/progress', authMiddleware, (req, res) => {
     }
   }
   
-  // 生成填报编号
-  const progressNo = generateProgressNo();
+  // 生成填报编号（使用项目编号作为前缀）
+  const progressNo = generateProgressNo(project_id);
   
   try {
     const result = db.prepare(`
@@ -1286,3 +1291,768 @@ router.get('/warnings/analysis/:projectId', authMiddleware, (req, res) => {
 });
 
 module.exports = router;
+
+// ==================== 任务管理 API ====================
+
+/**
+ * 生成任务编号
+ */
+function generateTaskNo(projectId) {
+  const project = db.prepare('SELECT project_no FROM projects WHERE id = ?').get(projectId);
+  if (!project) {
+    throw new Error('项目不存在');
+  }
+  
+  const projectNo = project.project_no;
+  const count = db.prepare(`
+    SELECT COUNT(*) as total FROM construction_tasks WHERE project_id = ?
+  `).get(projectId);
+  
+  const seq = String((count?.total || 0) + 1).padStart(3, '0');
+  return `${projectNo}-T${seq}`;
+}
+
+/**
+ * GET /api/construction/tasks
+ * 获取任务列表（支持甘特图格式）
+ */
+router.get('/tasks', authMiddleware, (req, res) => {
+  try {
+    const { projectId, milestoneId, parentId, gantt } = req.query;
+
+    let sql = `
+      SELECT t.*, 
+             p.project_no, p.name as project_name,
+             m.name as milestone_name,
+             u.real_name as assignee_name,
+             pt.name as parent_name
+      FROM construction_tasks t
+      LEFT JOIN projects p ON t.project_id = p.id
+      LEFT JOIN construction_milestones m ON t.milestone_id = m.id
+      LEFT JOIN users u ON t.assignee_id = u.id
+      LEFT JOIN construction_tasks pt ON t.parent_id = pt.id
+      WHERE 1=1
+    `;
+    const params = [];
+
+    if (projectId) {
+      sql += ' AND t.project_id = ?';
+      params.push(projectId);
+    }
+
+    if (milestoneId) {
+      sql += ' AND t.milestone_id = ?';
+      params.push(milestoneId);
+    }
+
+    if (parentId !== undefined) {
+      if (parentId === 'null' || parentId === '') {
+        sql += ' AND t.parent_id IS NULL';
+      } else {
+        sql += ' AND t.parent_id = ?';
+        params.push(parentId);
+      }
+    }
+
+    sql += ' ORDER BY t.sort_order, t.created_at';
+
+    const tasks = db.prepare(sql).all(...params);
+
+    // 如果请求甘特图格式，转换为树形结构
+    if (gantt === 'true') {
+      const taskMap = {};
+      const rootTasks = [];
+
+      // 先建立映射
+      tasks.forEach(task => {
+        taskMap[task.id] = {
+          ...task,
+          children: []
+        };
+      });
+
+      // 构建树形结构
+      tasks.forEach(task => {
+        if (task.parent_id && taskMap[task.parent_id]) {
+          taskMap[task.parent_id].children.push(taskMap[task.id]);
+        } else {
+          rootTasks.push(taskMap[task.id]);
+        }
+      });
+
+      return res.json({
+        success: true,
+        data: rootTasks
+      });
+    }
+
+    res.json({
+      success: true,
+      data: tasks
+    });
+  } catch (error) {
+    console.error('获取任务列表失败:', error);
+    res.status(500).json({ success: false, message: '获取失败', error: error.message });
+  }
+});
+
+/**
+ * GET /api/construction/tasks/:id
+ * 获取单个任务详情
+ */
+router.get('/tasks/:id', authMiddleware, (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const task = db.prepare(`
+      SELECT t.*, 
+             p.project_no, p.name as project_name,
+             m.name as milestone_name,
+             u.real_name as assignee_name
+      FROM construction_tasks t
+      LEFT JOIN projects p ON t.project_id = p.id
+      LEFT JOIN construction_milestones m ON t.milestone_id = m.id
+      LEFT JOIN users u ON t.assignee_id = u.id
+      WHERE t.id = ?
+    `).get(id);
+
+    if (!task) {
+      return res.status(404).json({ success: false, message: '任务不存在' });
+    }
+
+    // 获取子任务
+    const children = db.prepare(`
+      SELECT t.*, u.real_name as assignee_name
+      FROM construction_tasks t
+      LEFT JOIN users u ON t.assignee_id = u.id
+      WHERE t.parent_id = ?
+      ORDER BY t.sort_order
+    `).all(id);
+
+    res.json({
+      success: true,
+      data: { ...task, children }
+    });
+  } catch (error) {
+    console.error('获取任务详情失败:', error);
+    res.status(500).json({ success: false, message: '获取失败', error: error.message });
+  }
+});
+
+/**
+ * POST /api/construction/tasks
+ * 创建任务
+ */
+router.post('/tasks', authMiddleware, (req, res) => {
+  try {
+    const {
+      projectId, milestoneId, parentId, name, description,
+      plannedStartDate, plannedEndDate, assigneeId, sortOrder, remark
+    } = req.body;
+    const userId = req.user.id;
+
+    if (!projectId || !name) {
+      return res.status(400).json({ success: false, message: '缺少必填字段' });
+    }
+
+    const taskNo = generateTaskNo(projectId);
+
+    const result = db.prepare(`
+      INSERT INTO construction_tasks (
+        task_no, project_id, milestone_id, parent_id, name, description,
+        planned_start_date, planned_end_date, assignee_id, sort_order, remark,
+        creator_id, status, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', datetime('now'), datetime('now'))
+    `).run(
+      taskNo, projectId, milestoneId || null, parentId || null, name, description || '',
+      plannedStartDate || null, plannedEndDate || null, assigneeId || null,
+      sortOrder || 0, remark || '', userId
+    );
+
+    const newTask = db.prepare(`
+      SELECT t.*, u.real_name as assignee_name
+      FROM construction_tasks t
+      LEFT JOIN users u ON t.assignee_id = u.id
+      WHERE t.id = ?
+    `).get(result.lastInsertRowid);
+
+    res.json({
+      success: true,
+      message: '任务创建成功',
+      data: newTask
+    });
+  } catch (error) {
+    console.error('创建任务失败:', error);
+    res.status(500).json({ success: false, message: '创建失败', error: error.message });
+  }
+});
+
+/**
+ * PUT /api/construction/tasks/:id
+ * 更新任务（包括进度）
+ */
+router.put('/tasks/:id', authMiddleware, (req, res) => {
+  try {
+    const { id } = req.params;
+    const {
+      name, description, plannedStartDate, plannedEndDate,
+      actualStartDate, actualEndDate, progressRate, status, assigneeId, sortOrder, remark
+    } = req.body;
+
+    const task = db.prepare('SELECT * FROM construction_tasks WHERE id = ?').get(id);
+    if (!task) {
+      return res.status(404).json({ success: false, message: '任务不存在' });
+    }
+
+    const updates = [];
+    const params = [];
+
+    if (name !== undefined) { updates.push('name = ?'); params.push(name); }
+    if (description !== undefined) { updates.push('description = ?'); params.push(description); }
+    if (plannedStartDate !== undefined) { updates.push('planned_start_date = ?'); params.push(plannedStartDate); }
+    if (plannedEndDate !== undefined) { updates.push('planned_end_date = ?'); params.push(plannedEndDate); }
+    if (actualStartDate !== undefined) { updates.push('actual_start_date = ?'); params.push(actualStartDate); }
+    if (actualEndDate !== undefined) { updates.push('actual_end_date = ?'); params.push(actualEndDate); }
+    if (progressRate !== undefined) { updates.push('progress_rate = ?'); params.push(progressRate); }
+    if (status !== undefined) { updates.push('status = ?'); params.push(status); }
+    if (assigneeId !== undefined) { updates.push('assignee_id = ?'); params.push(assigneeId); }
+    if (sortOrder !== undefined) { updates.push('sort_order = ?'); params.push(sortOrder); }
+    if (remark !== undefined) { updates.push('remark = ?'); params.push(remark); }
+
+    if (updates.length === 0) {
+      return res.status(400).json({ success: false, message: '没有要更新的字段' });
+    }
+
+    updates.push("updated_at = datetime('now')");
+    params.push(id);
+
+    db.prepare(`UPDATE construction_tasks SET ${updates.join(', ')} WHERE id = ?`).run(...params);
+
+    const updatedTask = db.prepare(`
+      SELECT t.*, u.real_name as assignee_name
+      FROM construction_tasks t
+      LEFT JOIN users u ON t.assignee_id = u.id
+      WHERE t.id = ?
+    `).get(id);
+
+    res.json({
+      success: true,
+      message: '任务更新成功',
+      data: updatedTask
+    });
+  } catch (error) {
+    console.error('更新任务失败:', error);
+    res.status(500).json({ success: false, message: '更新失败', error: error.message });
+  }
+});
+
+/**
+ * PUT /api/construction/tasks/:id/progress
+ * 更新任务进度
+ */
+router.put('/tasks/:id/progress', authMiddleware, (req, res) => {
+  try {
+    const { id } = req.params;
+    const { progressRate, status, actualStartDate, actualEndDate } = req.body;
+
+    const task = db.prepare('SELECT * FROM construction_tasks WHERE id = ?').get(id);
+    if (!task) {
+      return res.status(404).json({ success: false, message: '任务不存在' });
+    }
+
+    const updates = ['progress_rate = ?', "updated_at = datetime('now')"];
+    const params = [progressRate];
+
+    if (status) { updates.push('status = ?'); params.push(status); }
+    if (actualStartDate) { updates.push('actual_start_date = ?'); params.push(actualStartDate); }
+    if (actualEndDate) { updates.push('actual_end_date = ?'); params.push(actualEndDate); }
+
+    // 如果进度100%，自动设置状态为完成
+    if (progressRate >= 100) {
+      updates.push("status = 'completed'");
+    } else if (progressRate > 0 && task.status === 'pending') {
+      updates.push("status = 'in_progress'");
+    }
+
+    params.push(id);
+
+    db.prepare(`UPDATE construction_tasks SET ${updates.join(', ')} WHERE id = ?`).run(...params);
+
+    res.json({
+      success: true,
+      message: '进度更新成功'
+    });
+  } catch (error) {
+    console.error('更新进度失败:', error);
+    res.status(500).json({ success: false, message: '更新失败', error: error.message });
+  }
+});
+
+/**
+ * DELETE /api/construction/tasks/:id
+ * 删除任务
+ */
+router.delete('/tasks/:id', authMiddleware, (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // 检查是否有子任务
+    const children = db.prepare('SELECT COUNT(*) as count FROM construction_tasks WHERE parent_id = ?').get(id);
+    if (children.count > 0) {
+      return res.status(400).json({ success: false, message: '请先删除子任务' });
+    }
+
+    db.prepare('DELETE FROM construction_tasks WHERE id = ?').run(id);
+
+    res.json({
+      success: true,
+      message: '任务删除成功'
+    });
+  } catch (error) {
+    console.error('删除任务失败:', error);
+    res.status(500).json({ success: false, message: '删除失败', error: error.message });
+  }
+});
+
+/**
+ * GET /api/construction/tasks/gantt/:projectId
+ * 获取项目甘特图数据
+ */
+router.get('/tasks/gantt/:projectId', authMiddleware, (req, res) => {
+  try {
+    const { projectId } = req.params;
+
+    // 获取所有任务
+    const tasks = db.prepare(`
+      SELECT t.*, u.real_name as assignee_name
+      FROM construction_tasks t
+      LEFT JOIN users u ON t.assignee_id = u.id
+      WHERE t.project_id = ?
+      ORDER BY t.sort_order, t.planned_start_date
+    `).all(projectId);
+
+    // 获取里程碑
+    const milestones = db.prepare(`
+      SELECT * FROM construction_milestones
+      WHERE project_id = ?
+      ORDER BY planned_date
+    `).all(projectId);
+
+    // 转换为甘特图格式
+    const ganttData = {
+      tasks: tasks.map(t => ({
+        id: t.id,
+        taskNo: t.task_no,
+        name: t.name,
+        parentId: t.parent_id,
+        milestoneId: t.milestone_id,
+        plannedStart: t.planned_start_date,
+        plannedEnd: t.planned_end_date,
+        actualStart: t.actual_start_date,
+        actualEnd: t.actual_end_date,
+        progress: t.progress_rate || 0,
+        status: t.status,
+        assignee: t.assignee_name,
+        assigneeId: t.assignee_id
+      })),
+      milestones: milestones.map(m => ({
+        id: m.id,
+        name: m.name,
+        plannedDate: m.planned_date,
+        actualDate: m.actual_date,
+        status: m.status,
+        progress: m.progress_rate || 0
+      }))
+    };
+
+    res.json({
+      success: true,
+      data: ganttData
+    });
+  } catch (error) {
+    console.error('获取甘特图数据失败:', error);
+    res.status(500).json({ success: false, message: '获取失败', error: error.message });
+  }
+});
+
+// ==================== 任务依赖关系 API ====================
+
+/**
+ * GET /api/construction/dependencies
+ * 获取任务依赖关系
+ */
+router.get('/dependencies', authMiddleware, (req, res) => {
+  try {
+    const { projectId } = req.query;
+
+    if (!projectId) {
+      return res.status(400).json({ success: false, message: '缺少项目ID' });
+    }
+
+    const dependencies = db.prepare(`
+      SELECT d.*,
+             pt.name as predecessor_name,
+             st.name as successor_name,
+             pt.task_no as predecessor_no,
+             st.task_no as successor_no
+      FROM task_dependencies d
+      LEFT JOIN construction_tasks pt ON d.predecessor_id = pt.id
+      LEFT JOIN construction_tasks st ON d.successor_id = st.id
+      WHERE d.project_id = ?
+      ORDER BY d.created_at
+    `).all(projectId);
+
+    res.json({
+      success: true,
+      data: dependencies
+    });
+  } catch (error) {
+    console.error('获取依赖关系失败:', error);
+    res.status(500).json({ success: false, message: '获取失败', error: error.message });
+  }
+});
+
+/**
+ * POST /api/construction/dependencies
+ * 创建任务依赖关系（紧前关系）
+ */
+router.post('/dependencies', authMiddleware, (req, res) => {
+  try {
+    const { projectId, predecessorId, successorId, dependencyType, lagDays } = req.body;
+
+    if (!projectId || !predecessorId || !successorId) {
+      return res.status(400).json({ success: false, message: '缺少必填字段' });
+    }
+
+    // 不能自己依赖自己
+    if (predecessorId === successorId) {
+      return res.status(400).json({ success: false, message: '任务不能依赖自己' });
+    }
+
+    // 检查是否已存在
+    const existing = db.prepare(`
+      SELECT id FROM task_dependencies 
+      WHERE predecessor_id = ? AND successor_id = ?
+    `).get(predecessorId, successorId);
+
+    if (existing) {
+      return res.status(400).json({ success: false, message: '该依赖关系已存在' });
+    }
+
+    // 检查是否会造成循环依赖
+    const hasCycle = checkCircularDependency(projectId, predecessorId, successorId);
+    if (hasCycle) {
+      return res.status(400).json({ success: false, message: '不能创建循环依赖' });
+    }
+
+    const result = db.prepare(`
+      INSERT INTO task_dependencies (
+        project_id, predecessor_id, successor_id, dependency_type, lag_days, created_at
+      ) VALUES (?, ?, ?, ?, ?, datetime('now'))
+    `).run(projectId, predecessorId, successorId, dependencyType || 'FS', lagDays || 0);
+
+    res.json({
+      success: true,
+      message: '依赖关系创建成功',
+      data: { id: result.lastInsertRowid }
+    });
+  } catch (error) {
+    console.error('创建依赖关系失败:', error);
+    res.status(500).json({ success: false, message: '创建失败', error: error.message });
+  }
+});
+
+/**
+ * DELETE /api/construction/dependencies/:id
+ * 删除任务依赖关系
+ */
+router.delete('/dependencies/:id', authMiddleware, (req, res) => {
+  try {
+    const { id } = req.params;
+
+    db.prepare('DELETE FROM task_dependencies WHERE id = ?').run(id);
+
+    res.json({
+      success: true,
+      message: '依赖关系删除成功'
+    });
+  } catch (error) {
+    console.error('删除依赖关系失败:', error);
+    res.status(500).json({ success: false, message: '删除失败', error: error.message });
+  }
+});
+
+/**
+ * 检查循环依赖
+ */
+function checkCircularDependency(projectId, predecessorId, successorId, visited = new Set()) {
+  // 获取后继任务的所有前驱任务
+  const predecessors = db.prepare(`
+    SELECT predecessor_id FROM task_dependencies 
+    WHERE successor_id = ? AND project_id = ?
+  `).all(successorId, projectId);
+
+  for (const pred of predecessors) {
+    if (pred.predecessor_id === predecessorId) {
+      return true; // 发现循环
+    }
+    if (!visited.has(pred.predecessor_id)) {
+      visited.add(pred.predecessor_id);
+      if (checkCircularDependency(projectId, predecessorId, pred.predecessor_id, visited)) {
+        return true;
+      }
+    }
+  }
+
+  return false;
+}
+
+/**
+ * GET /api/construction/tasks/with-dependencies/:projectId
+ * 获取带依赖关系的任务列表（甘特图用）
+ */
+router.get('/tasks/with-dependencies/:projectId', authMiddleware, (req, res) => {
+  try {
+    const { projectId } = req.params;
+
+    // 获取所有任务
+    const tasks = db.prepare(`
+      SELECT t.*, u.real_name as assignee_name
+      FROM construction_tasks t
+      LEFT JOIN users u ON t.assignee_id = u.id
+      WHERE t.project_id = ?
+      ORDER BY t.sort_order, t.planned_start_date
+    `).all(projectId);
+
+    // 获取所有依赖关系
+    const dependencies = db.prepare(`
+      SELECT d.*,
+             pt.name as predecessor_name,
+             st.name as successor_name
+      FROM task_dependencies d
+      LEFT JOIN construction_tasks pt ON d.predecessor_id = pt.id
+      LEFT JOIN construction_tasks st ON d.successor_id = st.id
+      WHERE d.project_id = ?
+    `).all(projectId);
+
+    // 为每个任务添加前置任务和后继任务列表
+    const taskMap = {};
+    tasks.forEach(task => {
+      taskMap[task.id] = {
+        ...task,
+        predecessors: [],
+        successors: []
+      };
+    });
+
+    dependencies.forEach(dep => {
+      if (taskMap[dep.successor_id]) {
+        taskMap[dep.successor_id].predecessors.push({
+          id: dep.predecessor_id,
+          name: dep.predecessor_name,
+          type: dep.dependency_type,
+          lagDays: dep.lag_days
+        });
+      }
+      if (taskMap[dep.predecessor_id]) {
+        taskMap[dep.predecessor_id].successors.push({
+          id: dep.successor_id,
+          name: dep.successor_name,
+          type: dep.dependency_type,
+          lagDays: dep.lag_days
+        });
+      }
+    });
+
+    res.json({
+      success: true,
+      data: {
+        tasks: Object.values(taskMap),
+        dependencies: dependencies.map(d => ({
+          id: d.id,
+          predecessorId: d.predecessor_id,
+          successorId: d.successor_id,
+          predecessorName: d.predecessor_name,
+          successorName: d.successor_name,
+          type: d.dependency_type,
+          lagDays: d.lag_days
+        }))
+      }
+    });
+  } catch (error) {
+    console.error('获取任务依赖数据失败:', error);
+    res.status(500).json({ success: false, message: '获取失败', error: error.message });
+  }
+
+
+/**
+ * POST /api/construction/tasks/:id/dependencies
+ * 设置任务依赖关系
+ */
+router.post('/tasks/:id/dependencies', authMiddleware, (req, res) => {
+  try {
+    const { id } = req.params;
+    const { dependencies } = req.body; // [{ taskId, type, lagDays }, ...]
+
+    const task = db.prepare('SELECT * FROM construction_tasks WHERE id = ?').get(id);
+    if (!task) {
+      return res.status(404).json({ success: false, message: '任务不存在' });
+    }
+
+    // 删除现有依赖
+    db.prepare('DELETE FROM task_dependencies WHERE task_id = ?').run(id);
+
+    // 添加新依赖
+    if (dependencies && dependencies.length > 0) {
+      const insertDep = db.prepare(`
+        INSERT INTO task_dependencies (task_id, depends_on_task_id, dependency_type, lag_days)
+        VALUES (?, ?, ?, ?)
+      `);
+
+      for (const dep of dependencies) {
+        if (dep.taskId && dep.taskId !== parseInt(id)) {
+          insertDep.run(id, dep.taskId, dep.type || 'finish_to_start', dep.lagDays || 0);
+        }
+      }
+    }
+
+    res.json({
+      success: true,
+      message: '依赖关系设置成功'
+    });
+  } catch (error) {
+    console.error('设置依赖关系失败:', error);
+    res.status(500).json({ success: false, message: '设置失败', error: error.message });
+  }
+});
+
+/**
+ * GET /api/construction/tasks/:id/dependencies
+ * 获取任务依赖关系
+ */
+router.get('/tasks/:id/dependencies', authMiddleware, (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const dependencies = db.prepare(`
+      SELECT td.*, t.name as depends_on_task_name, t.task_no as depends_on_task_no
+      FROM task_dependencies td
+      LEFT JOIN construction_tasks t ON td.depends_on_task_id = t.id
+      WHERE td.task_id = ?
+    `).all(id);
+
+    // 获取依赖此任务的任务
+    const dependents = db.prepare(`
+      SELECT td.*, t.name as task_name, t.task_no as task_no
+      FROM task_dependencies td
+      LEFT JOIN construction_tasks t ON td.task_id = t.id
+      WHERE td.depends_on_task_id = ?
+    `).all(id);
+
+    res.json({
+      success: true,
+      data: { dependencies, dependents }
+    });
+  } catch (error) {
+    console.error('获取依赖关系失败:', error);
+    res.status(500).json({ success: false, message: '获取失败', error: error.message });
+  }
+});
+
+/**
+ * POST /api/construction/tasks/batch
+ * 批量创建任务（甘特图拖拽创建）
+ */
+router.post('/tasks/batch', authMiddleware, (req, res) => {
+  try {
+    const { tasks } = req.body;
+    const userId = req.user.id;
+
+    if (!tasks || tasks.length === 0) {
+      return res.status(400).json({ success: false, message: '没有任务数据' });
+    }
+
+    const projectId = tasks[0].projectId;
+    const createdTasks = [];
+
+    // 使用事务
+    const createTask = db.transaction(() => {
+      for (const taskData of tasks) {
+        const taskNo = generateTaskNo(taskData.projectId);
+        
+        const result = db.prepare(`
+          INSERT INTO construction_tasks (
+            task_no, project_id, milestone_id, name, 
+            planned_start_date, planned_end_date, planned_duration,
+            assignee_id, priority, status, creator_id,
+            created_at, updated_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, datetime('now'), datetime('now'))
+        `).run(
+          taskNo, taskData.projectId, taskData.milestoneId || null, taskData.name,
+          taskData.plannedStartDate, taskData.plannedEndDate, 
+          taskData.plannedDuration || 0,
+          taskData.assigneeId || null, taskData.priority || 'normal', userId
+        );
+
+        createdTasks.push({
+          id: result.lastInsertRowid,
+          taskNo,
+          ...taskData
+        });
+      }
+    });
+
+    createTask();
+
+    res.json({
+      success: true,
+      message: `成功创建 ${createdTasks.length} 个任务`,
+      data: createdTasks
+    });
+  } catch (error) {
+    console.error('批量创建任务失败:', error);
+    res.status(500).json({ success: false, message: '创建失败', error: error.message });
+  }
+});
+
+/**
+ * PUT /api/construction/tasks/:id/dates
+ * 更新任务日期（甘特图拖拽）
+ */
+router.put('/tasks/:id/dates', authMiddleware, (req, res) => {
+  try {
+    const { id } = req.params;
+    const { plannedStartDate, plannedEndDate, plannedDuration } = req.body;
+
+    const task = db.prepare('SELECT * FROM construction_tasks WHERE id = ?').get(id);
+    if (!task) {
+      return res.status(404).json({ success: false, message: '任务不存在' });
+    }
+
+    // 计算工期
+    let duration = plannedDuration;
+    if (plannedStartDate && plannedEndDate) {
+      const start = new Date(plannedStartDate);
+      const end = new Date(plannedEndDate);
+      duration = Math.ceil((end - start) / (1000 * 60 * 60 * 24)) + 1;
+    }
+
+    db.prepare(`
+      UPDATE construction_tasks 
+      SET planned_start_date = ?, planned_end_date = ?, planned_duration = ?,
+          updated_at = datetime('now')
+      WHERE id = ?
+    `).run(plannedStartDate, plannedEndDate, duration, id);
+
+    res.json({
+      success: true,
+      message: '日期更新成功'
+    });
+  } catch (error) {
+    console.error('更新日期失败:', error);
+    res.status(500).json({ success: false, message: '更新失败', error: error.message });
+  }
+});
+
+module.exports = router;
+});

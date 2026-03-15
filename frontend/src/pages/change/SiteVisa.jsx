@@ -342,6 +342,21 @@ function SiteVisaForm({ onClose, onSuccess, projects }) {
               rows={2}
             />
           </div>
+
+          <div className="form-group">
+            <label>附件上传</label>
+            <input
+              type="file"
+              multiple
+              onChange={(e) => {
+                const files = Array.from(e.target.files);
+                const fileNames = files.map(f => f.name).join(',');
+                setFormData({ ...formData, attachments: fileNames });
+              }}
+              style={{ padding: '8px' }}
+            />
+            <div className="form-tip">支持上传签证相关文档、图片等</div>
+          </div>
           
           <div className="form-actions">
             <button type="button" onClick={onClose} disabled={loading}>取消</button>

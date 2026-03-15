@@ -795,7 +795,7 @@ router.get('/batch-orders', (req, res) => {
   }
 
   const countSql = sql.replace(
-    /SELECT bpo\.\*, p\.name as project_name[\s\S]*?WHERE 1=1/,
+    /SELECT bpo\.\*, p\.name as project_name.*?WHERE 1=1/,
     'SELECT COUNT(*) as total FROM batch_purchase_orders bpo LEFT JOIN projects p ON bpo.project_id = p.id LEFT JOIN suppliers s ON bpo.supplier_id = s.id WHERE 1=1'
   );
   const countResult = db.prepare(countSql).get(...params);
@@ -1617,7 +1617,7 @@ router.get('/sporadic', (req, res) => {
 
   // 获取总数
   const countSql = sql.replace(
-    /SELECT sp\.\*, p\.name as project_name[\s\S]*?WHERE 1=1/,
+    /SELECT sp\.\*, p\.name as project_name.*?WHERE 1=1/,
     'SELECT COUNT(*) as total FROM sporadic_purchases sp LEFT JOIN projects p ON sp.project_id = p.id WHERE 1=1'
   );
   const countResult = db.prepare(countSql).get(...params);
@@ -3464,5 +3464,111 @@ router.get('/pending-approvals', checkPermission('purchase:approve'), (req, res)
       success: false,
       message: '获取待审批列表失败'
     });
+  }
+});
+
+/**
+ * POST /api/purchase-lists/:id/submit
+ * 提交采购清单审批
+ */
+router.post('/:id/submit', authMiddleware, (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.id;
+    
+    // 检查采购清单是否存在
+    const list = db.prepare('SELECT * FROM purchase_lists WHERE id = ?').get(id);
+    if (!list) {
+      return res.status(404).json({ success: false, message: '采购清单不存在' });
+    }
+    
+    // 检查状态
+    if (list.status !== 'draft') {
+      return res.status(400).json({ success: false, message: '只有草稿状态的采购清单才能提交审批' });
+    }
+    
+    // 检查是否有物资
+    const itemCount = db.prepare('SELECT COUNT(*) as count FROM purchase_list_items WHERE purchase_list_id = ?').get(id);
+    if (itemCount.count === 0) {
+      return res.status(400).json({ success: false, message: '采购清单中没有物资，无法提交审批' });
+    }
+    
+    // 更新状态
+    db.prepare(`
+      UPDATE purchase_lists 
+      SET status = 'pending', 
+          approval_status = 'pending_approval',
+          approval_step = 1,
+          submitted_at = datetime('now'),
+          submitter_id = ?,
+          updated_at = datetime('now')
+      WHERE id = ?
+    `).run(userId, id);
+    
+    // 创建审批流程记录
+    const approvalSteps = [
+      { step: 1, role: 'FINANCE', step_name: '财务管理' },
+      { step: 2, role: 'GM', step_name: '总经理' }
+    ];
+    
+    const insertApproval = db.prepare(`
+      INSERT INTO purchase_list_approvals (purchase_list_id, step, role, step_name, status, created_at)
+      VALUES (?, ?, ?, ?, 'pending', datetime('now'))
+    `);
+    
+    for (const step of approvalSteps) {
+      insertApproval.run(id, step.step, step.role, step.step_name);
+    }
+    
+    res.json({ success: true, message: '采购清单已提交审批' });
+  } catch (error) {
+    console.error('提交审批失败:', error);
+    res.status(500).json({ success: false, message: '提交审批失败' });
+  }
+});
+
+module.exports = router;
+
+/**
+ * POST /api/purchase-lists/:id/cancel
+ * 取消采购清单
+ */
+router.post('/:id/cancel', authMiddleware, (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.id;
+    
+    // 检查采购清单是否存在
+    const list = db.prepare('SELECT * FROM purchase_lists WHERE id = ?').get(id);
+    if (!list) {
+      return res.status(404).json({ success: false, message: '采购清单不存在' });
+    }
+    
+    // 检查状态 - 只有审批中或待审核状态可以取消
+    if (list.approval_status !== 'pending_approval' && list.status !== 'pending') {
+      return res.status(400).json({ success: false, message: '只有审批中或待审核状态的采购清单才能取消' });
+    }
+    
+    // 更新状态
+    db.prepare(`
+      UPDATE purchase_lists 
+      SET status = 'cancelled', 
+          approval_status = 'cancelled',
+          updated_at = datetime('now')
+      WHERE id = ?
+    `).run(id);
+    
+    // 更新审批流程状态
+    db.prepare(`
+      UPDATE purchase_list_approvals 
+      SET status = 'cancelled',
+          updated_at = datetime('now')
+      WHERE purchase_list_id = ?
+    `).run(id);
+    
+    res.json({ success: true, message: '采购清单已取消' });
+  } catch (error) {
+    console.error('取消采购清单失败:', error);
+    res.status(500).json({ success: false, message: '取消采购清单失败' });
   }
 });

@@ -119,6 +119,9 @@ function LaborSettlement() {
   const [statsVisible, setStatsVisible] = useState(false);
   const [projectStats, setProjectStats] = useState(null);
 
+  // 施工进度信息
+  const [selectedProjectProgress, setSelectedProjectProgress] = useState(null);
+
   // 加载项目列表
   useEffect(() => {
     loadProjects();
@@ -136,6 +139,28 @@ function LaborSettlement() {
       }
     } catch (error) {
       console.error('加载项目列表失败:', error);
+    }
+  };
+
+  // 获取项目施工进度
+  const loadProjectProgress = async (projectId) => {
+    if (!projectId) {
+      setSelectedProjectProgress(null);
+      return;
+    }
+    try {
+      const response = await fetch(`${API_BASE}/construction/progress?project_id=${projectId}&pageSize=1`, {
+        headers: getAuthHeaders()
+      });
+      const result = await response.json();
+      if (result.success && result.data && result.data.length > 0) {
+        setSelectedProjectProgress(result.data[0]);
+      } else {
+        setSelectedProjectProgress(null);
+      }
+    } catch (error) {
+      console.error('加载施工进度失败:', error);
+      setSelectedProjectProgress(null);
     }
   };
 
@@ -827,7 +852,13 @@ function LaborSettlement() {
           form={form}
           layout="vertical"
           onFinish={handleSubmit}
-          onValuesChange={() => form.validateFields()}
+          onValuesChange={(changedValues) => {
+            form.validateFields();
+            // 当选择项目时，加载施工进度
+            if (changedValues.projectId) {
+              loadProjectProgress(changedValues.projectId);
+            }
+          }}
         >
           <Form.Item
             name="projectId"
@@ -839,6 +870,13 @@ function LaborSettlement() {
               showSearch
               optionFilterProp="children"
               disabled={!!editingSettlement}
+              onChange={(value) => {
+                if (value) {
+                  loadProjectProgress(value);
+                } else {
+                  setSelectedProjectProgress(null);
+                }
+              }}
             >
               {projects.map(p => (
                 <Option key={p.id} value={p.id}>
@@ -847,6 +885,29 @@ function LaborSettlement() {
               ))}
             </Select>
           </Form.Item>
+
+          {/* 显示施工进度信息 */}
+          {selectedProjectProgress && (
+            <Card size="small" style={{ marginBottom: 16, background: '#e6f7ff', borderColor: '#1890ff' }}>
+              <Row gutter={16}>
+                <Col span={12}>
+                  <div style={{ marginBottom: 4, color: '#666' }}>当期形象进度</div>
+                  <div style={{ fontSize: 20, fontWeight: 'bold', color: '#1890ff' }}>
+                    {selectedProjectProgress.progress_rate}%
+                  </div>
+                </Col>
+                <Col span={12}>
+                  <div style={{ marginBottom: 4, color: '#666' }}>形象进度描述</div>
+                  <div style={{ fontSize: 14 }}>
+                    {selectedProjectProgress.work_content || '暂无描述'}
+                  </div>
+                </Col>
+              </Row>
+              <div style={{ marginTop: 8, fontSize: 12, color: '#999' }}>
+                填报日期: {selectedProjectProgress.report_date || '-'}
+              </div>
+            </Card>
+          )}
 
           <Form.Item
             name="workerName"

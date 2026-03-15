@@ -601,7 +601,8 @@ function ProgressReport() {
               <thead>
                 <tr>
                   <th style={styles.th}>填报编号</th>
-                  <th style={styles.th}>项目</th>
+                  <th style={styles.th}>项目编号</th>
+                  <th style={styles.th}>项目名称</th>
                   <th style={styles.th}>关联里程碑</th>
                   <th style={styles.th}>填报日期</th>
                   <th style={styles.th}>进度</th>
@@ -614,6 +615,7 @@ function ProgressReport() {
                 {progressList.map(item => (
                   <tr key={item.id}>
                     <td style={styles.td}>{item.progress_no}</td>
+                    <td style={styles.td}>{item.project_no || '-'}</td>
                     <td style={styles.td}>{item.project_name}</td>
                     <td style={styles.td}>{item.milestone_name || '-'}</td>
                     <td style={styles.td}>{item.report_date}</td>

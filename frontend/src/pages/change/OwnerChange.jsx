@@ -288,8 +288,11 @@ function CreateModal({ onClose, onSuccess, editItem = null }) {
     impact_assessment: editItem?.impact_assessment || '',
     cost_impact: editItem?.cost_impact || '',
     schedule_impact: editItem?.schedule_impact || '',
-    remark: editItem?.remark || ''
+    remark: editItem?.remark || '',
+    attachments: editItem?.attachments || ''
   });
+  
+  const [selectedFiles, setSelectedFiles] = useState([]);
 
   // 获取项目列表
   useEffect(() => {
@@ -443,6 +446,32 @@ function CreateModal({ onClose, onSuccess, editItem = null }) {
               placeholder="选填"
               rows={2}
             />
+          </div>
+
+          <div className="form-group">
+            <label>附件上传</label>
+            <input
+              type="file"
+              multiple
+              onChange={(e) => {
+                const files = Array.from(e.target.files);
+                setSelectedFiles(files);
+                const fileNames = files.map(f => f.name).join(',');
+                setFormData({ ...formData, attachments: fileNames });
+              }}
+              style={{ padding: '8px' }}
+            />
+            <div className="form-tip">支持多文件上传，可上传变更相关文档、图片等</div>
+            {selectedFiles.length > 0 && (
+              <div style={{ marginTop: 8 }}>
+                <strong>已选择文件：</strong>
+                <ul style={{ margin: '4px 0', paddingLeft: 20 }}>
+                  {selectedFiles.map((file, idx) => (
+                    <li key={idx}>{file.name}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </div>
 
           <div className="form-tip">

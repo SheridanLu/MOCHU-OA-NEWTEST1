@@ -90,7 +90,10 @@ router.get('/in', (req, res) => {
   }
   
   // 获取总数
-  const countSql = `SELECT COUNT(*) as total FROM stock_in si LEFT JOIN projects p ON si.project_id = p.id LEFT JOIN suppliers s ON si.supplier_id = s.id LEFT JOIN users u ON si.creator_id = u.id WHERE 1=1${keyword ? ' AND (si.stock_in_no LIKE ? OR p.name LIKE ?)' : ''}${status && status !== 'all' ? ' AND si.status = ?' : ''}${project_id ? ' AND si.project_id = ?' : ''}`;
+  const countSql = sql.replace(
+    /SELECT si\.\*,[\s\S]*?FROM/,
+    'SELECT COUNT(*) as total FROM'
+  );
   const countResult = db.prepare(countSql).get(...params);
   const total = countResult ? countResult.total : 0;
   
@@ -736,14 +739,8 @@ router.get('/', (req, res) => {
  * GET /api/stock/:id
  * 获取单个库存详情（含出入库记录）
  */
-router.get('/:id', (req, res, next) => {
+router.get('/:id', (req, res) => {
   const { id } = req.params;
-  
-  // 如果id是'query'、'out'、'in'、'return'等，跳过此路由
-  const skipIds = ['query', 'out', 'in', 'return'];
-  if (skipIds.includes(id)) {
-    return next('route');
-  }
   
   const stock = db.prepare('SELECT * FROM inventory WHERE id = ?').get(id);
   if (!stock) {
@@ -1135,7 +1132,10 @@ router.get('/out/pending', (req, res) => {
   }
   
   // 获取总数
-  const countSql = sql.replace(/SELECT sa\.\*,.*?FROM/, 'SELECT COUNT(*) as total FROM');
+  const countSql = sql.replace(
+    /SELECT sa\.\*,[\s\S]*?FROM/,
+    'SELECT COUNT(*) as total FROM'
+  );
   const countResult = db.prepare(countSql).get(...params);
   const total = countResult ? countResult.total : 0;
   
@@ -1204,7 +1204,10 @@ router.get('/out/applications', (req, res) => {
   }
   
   // 获取总数
-  const countSql = sql.replace(/SELECT sa\.\*,.*?FROM/, 'SELECT COUNT(*) as total FROM');
+  const countSql = sql.replace(
+    /SELECT sa\.\*,[\s\S]*?FROM/,
+    'SELECT COUNT(*) as total FROM'
+  );
   const countResult = db.prepare(countSql).get(...params);
   const total = countResult ? countResult.total : 0;
   
@@ -1584,7 +1587,10 @@ router.get('/out/my-applications', (req, res) => {
   }
   
   // 获取总数
-  const countSql = sql.replace(/SELECT sa\.\*,.*?FROM/, 'SELECT COUNT(*) as total FROM');
+  const countSql = sql.replace(
+    /SELECT sa\.\*,[\s\S]*?FROM/,
+    'SELECT COUNT(*) as total FROM'
+  );
   const countResult = db.prepare(countSql).get(...params);
   const total = countResult ? countResult.total : 0;
   
@@ -1687,7 +1693,7 @@ router.get('/out', (req, res) => {
   
   // 获取总数
   const countSql = sql.replace(
-    /SELECT so\.\*,.*?FROM/,
+    /SELECT so\.\*,[\s\S]*?FROM/,
     'SELECT COUNT(*) as total FROM'
   );
   const countResult = db.prepare(countSql).get(...params);
@@ -2474,7 +2480,7 @@ router.get('/return', (req, res) => {
   
   // 获取总数
   const countSql = sql.replace(
-    /SELECT sr\.\*,.*?FROM/,
+    /SELECT sr\.\*,[\s\S]*?FROM/,
     'SELECT COUNT(*) as total FROM'
   );
   const countResult = db.prepare(countSql).get(...params);

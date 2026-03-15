@@ -20,7 +20,8 @@ import {
   Tooltip,
   Progress,
   Timeline,
-  Alert
+  Alert,
+  Upload
 } from 'antd';
 import {
   FileTextOutlined,
@@ -838,9 +839,15 @@ function IncomeStatement() {
             rules={[{ required: true, message: '请选择项目' }]}
           >
             <Select
-              placeholder="请选择项目"
+              placeholder="请选择项目（可搜索项目编号或名称）"
               showSearch
               optionFilterProp="children"
+              filterOption={(input, option) => {
+                const children = option.children;
+                if (!children) return false;
+                const text = typeof children === 'string' ? children : String(children);
+                return text.toLowerCase().indexOf(input.toLowerCase()) >= 0;
+              }}
             >
               {projects.filter(p => p.type === 'entity').map(p => (
                 <Option key={p.id} value={p.id}>
@@ -928,55 +935,117 @@ function IncomeStatement() {
             </Row>
 
             <Form.Item
-              name="progressRate"
-              label="新进度百分比 (%)"
+              name="currentPeriodValue"
+              label="当期产值"
               rules={[
-                { required: true, message: '请输入进度百分比' },
-                { type: 'number', min: 0, max: 100, message: '进度必须在 0-100 之间' }
+                { required: true, message: '请输入当期产值' }
               ]}
-              extra={`进度只能大于当前进度 ${parseFloat(editingStatement.progress_rate || 0).toFixed(2)}%`}
             >
               <InputNumber
-                min={parseFloat(editingStatement.progress_rate || 0)}
-                max={100}
+                min={0}
                 precision={2}
                 style={{ width: '100%' }}
-                prefix={<PercentageOutlined />}
+                prefix="¥"
+                placeholder="请输入当期产值"
               />
+            </Form.Item>
+
+            <Row gutter={16}>
+              <Col span={12}>
+                <Form.Item label="前期累计回款">
+                  <Input 
+                    value={`¥${parseFloat(editingStatement.previous_accumulated_receipt || 0).toLocaleString()}`} 
+                    disabled 
+                  />
+                </Form.Item>
+              </Col>
+              <Col span={12}>
+                <Form.Item label="当期确认回款（来自收款登记）">
+                  <Input 
+                    value={`¥${parseFloat(editingStatement.current_period_receipt || 0).toLocaleString()}`} 
+                    disabled 
+                  />
+                </Form.Item>
+              </Col>
+            </Row>
+
+            <Form.Item
+              name="progressDescription"
+              label="形象进度填报"
+            >
+              <TextArea 
+                rows={4} 
+                placeholder="请描述当前工程形象进度，如：主体结构完成、装修进度等" 
+              />
+            </Form.Item>
+
+            <Form.Item
+              name="attachments"
+              label="附件上传"
+              valuePropName="fileList"
+              getValueFromEvent={(e) => {
+                if (Array.isArray(e)) return e;
+                return e?.fileList;
+              }}
+            >
+              <Upload
+                name="files"
+                action="/api/upload"
+                listType="picture-card"
+                multiple
+                maxCount={5}
+              >
+                <div>
+                  <PlusOutlined />
+                  <div style={{ marginTop: 8 }}>上传附件</div>
+                </div>
+              </Upload>
             </Form.Item>
 
             <Form.Item
               name="remark"
               label="备注"
             >
-              <TextArea rows={3} placeholder="请输入备注说明（可选）" />
+              <TextArea rows={2} placeholder="请输入备注说明（可选）" />
             </Form.Item>
 
             <Form.Item 
-              shouldUpdate={(prevValues, currentValues) => prevValues.progressRate !== currentValues.progressRate}
+              shouldUpdate={(prevValues, currentValues) => prevValues.currentPeriodValue !== currentValues.currentPeriodValue}
             >
               {({ getFieldValue }) => {
-                const progressRate = getFieldValue('progressRate') || 0;
-                const preview = calculatePreview(progressRate);
+                const currentPeriodValue = getFieldValue('currentPeriodValue') || 0;
+                const contractAmount = parseFloat(editingStatement.contract_amount || 0);
+                const previousAccumulated = parseFloat(editingStatement.accumulated_amount || 0);
+                const newAccumulated = previousAccumulated + parseFloat(currentPeriodValue);
+                const progressRate = contractAmount > 0 ? (newAccumulated / contractAmount * 100).toFixed(2) : 0;
+                
                 return (
                   <Card size="small" style={{ background: '#fafafa' }}>
                     <Row gutter={16}>
-                      <Col span={12}>
+                      <Col span={8}>
                         <Statistic
-                          title="预计当期产值"
-                          value={preview.progressAmount}
+                          title="当期产值"
+                          value={currentPeriodValue}
                           precision={2}
                           prefix="¥"
-                          valueStyle={{ fontSize: 18 }}
+                          valueStyle={{ fontSize: 16 }}
                         />
                       </Col>
-                      <Col span={12}>
+                      <Col span={8}>
                         <Statistic
-                          title="预计累计产值"
-                          value={preview.accumulatedAmount}
+                          title="累计产值"
+                          value={newAccumulated}
                           precision={2}
                           prefix="¥"
-                          valueStyle={{ fontSize: 18, color: '#52c41a' }}
+                          valueStyle={{ fontSize: 16, color: '#1890ff' }}
+                        />
+                      </Col>
+                      <Col span={8}>
+                        <Statistic
+                          title="进度比例"
+                          value={progressRate}
+                          suffix="%"
+                          valueStyle={{ fontSize: 16, color: '#52c41a' }}
                         />
                       </Col>
                     </Row>

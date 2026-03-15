@@ -195,18 +195,17 @@ function OverageList({ onView, onCreate, onRefresh, userRoles = [] }) {
                 <th>变更编号</th>
                 <th>关联项目</th>
                 <th>关联合同</th>
-                <th>超量类型</th>
                 <th>超量金额</th>
                 <th>状态</th>
+                <th>当前审批人</th>
                 <th>申请人</th>
                 <th>申请时间</th>
-                <th>操作</th>
               </tr>
             </thead>
             <tbody>
               {list.length === 0 ? (
                 <tr>
-                  <td colSpan="9" className="empty-row">暂无数据</td>
+                  <td colSpan="8" className="empty-row">暂无数据</td>
                 </tr>
               ) : (
                 list.map(item => (
@@ -218,11 +217,6 @@ function OverageList({ onView, onCreate, onRefresh, userRoles = [] }) {
                     </td>
                     <td title={item.project_name}>{item.project_name || '-'}</td>
                     <td title={item.contract_name}>{item.contract_name || '-'}</td>
-                    <td>
-                      <span className="overage-type-tag">
-                        {OVERAGE_TYPE_MAP[item.overage_type]?.icon || '📋'} {item.overage_type_text}
-                      </span>
-                    </td>
                     <td className="amount-cell">{formatAmount(item.overage_amount)}</td>
                     <td>
                       <span 
@@ -235,21 +229,9 @@ function OverageList({ onView, onCreate, onRefresh, userRoles = [] }) {
                         {item.status_text}
                       </span>
                     </td>
+                    <td>{item.current_approver_name || '-'}</td>
                     <td>{item.creator_name || '-'}</td>
                     <td>{formatDate(item.created_at)}</td>
-                    <td>
-                      <div className="action-btns">
-                        <button className="btn-link" onClick={() => onView(item)}>查看</button>
-                        {(item.status === 'pending' || item.status === 'rejected') && (
-                          <button 
-                            className="btn-link danger" 
-                            onClick={() => handleDelete(item)}
-                          >
-                            删除
-                          </button>
-                        )}
-                      </div>
-                    </td>
                   </tr>
                 ))
               )}
@@ -290,7 +272,8 @@ function CreateModal({ onClose, onSuccess, editItem = null }) {
     overage_type: editItem?.overage_type || 'amount',
     overage_amount: editItem?.overage_amount || '',
     reason: editItem?.reason || '',
-    remark: editItem?.remark || ''
+    remark: editItem?.remark || '',
+    attachments: editItem?.attachments || ''
   });
 
   // 获取项目列表
@@ -463,6 +446,21 @@ function CreateModal({ onClose, onSuccess, editItem = null }) {
               placeholder="选填"
               rows={2}
             />
+          </div>
+
+          <div className="form-group">
+            <label>附件上传</label>
+            <input
+              type="file"
+              multiple
+              onChange={(e) => {
+                const files = Array.from(e.target.files);
+                const fileNames = files.map(f => f.name).join(',');
+                setFormData({ ...formData, attachments: fileNames });
+              }}
+              style={{ padding: '8px' }}
+            />
+            <div className="form-tip">支持上传变更相关文档、图片等</div>
           </div>
 
           <div className="form-tip">

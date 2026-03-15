@@ -17,7 +17,8 @@ import {
   Alert,
   Modal,
   Tooltip,
-  Badge
+  Badge,
+  Steps
 } from 'antd';
 import {
   SaveOutlined,
@@ -353,52 +354,94 @@ function ExpenseContractCreate() {
 
   // 提交合同
   const submitContract = async (values) => {
-    setLoading(true);
-    try {
-      // 处理日期
-      const [start_date, end_date] = values.dateRange || [null, null];
-      
-      // 获取供应商名称
-      const selectedSupplier = suppliers.find(s => s.id === values.supplier_id);
-      
-      const submitData = {
-        name: values.name,
-        project_id: values.project_id,
-        supplier_id: values.supplier_id,
-        party_b: selectedSupplier?.name || values.party_b,
-        amount: calculateTotalAmount() || values.amount || 0,
-        sign_date: values.sign_date ? values.sign_date.format('YYYY-MM-DD') : null,
-        start_date: start_date ? start_date.format('YYYY-MM-DD') : null,
-        end_date: end_date ? end_date.format('YYYY-MM-DD') : null,
-        contract_category: values.contract_category || 'equipment',
-        description: values.description
-      };
+    // 显示审批流程确认弹窗
+    Modal.confirm({
+      title: '支出合同审批流程',
+      icon: <ExclamationCircleOutlined />,
+      width: 600,
+      content: (
+        <div>
+          <Alert 
+            message="提交后将按以下流程审批" 
+            type="info" 
+            showIcon 
+            style={{ marginBottom: 16 }}
+          />
+          <Steps direction="vertical" size="small" current={-1}>
+            <Steps.Step 
+              title="财务管理" 
+              description="审核合同金额、付款条款等财务相关内容"
+              status="wait"
+            />
+            <Steps.Step 
+              title="法务" 
+              description="审核合同条款、法律责任等法务相关内容"
+              status="wait"
+            />
+            <Steps.Step 
+              title="总经理" 
+              description="最终审批确认"
+              status="wait"
+            />
+          </Steps>
+          <Divider />
+          <div style={{ marginTop: 16 }}>
+            <p><strong>合同名称：</strong>{values.name}</p>
+            <p><strong>合同金额：</strong>¥{(calculateTotalAmount() || values.amount || 0).toLocaleString()}</p>
+          </div>
+        </div>
+      ),
+      okText: '确认提交',
+      cancelText: '取消',
+      onOk: async () => {
+        setLoading(true);
+        try {
+          // 处理日期
+          const [start_date, end_date] = values.dateRange || [null, null];
+          
+          // 获取供应商名称
+          const selectedSupplier = suppliers.find(s => s.id === values.supplier_id);
+          
+          const submitData = {
+            name: values.name,
+            project_id: values.project_id,
+            supplier_id: values.supplier_id,
+            party_b: selectedSupplier?.name || values.party_b,
+            amount: calculateTotalAmount() || values.amount || 0,
+            sign_date: values.sign_date ? values.sign_date.format('YYYY-MM-DD') : null,
+            start_date: start_date ? start_date.format('YYYY-MM-DD') : null,
+            end_date: end_date ? end_date.format('YYYY-MM-DD') : null,
+            contract_category: values.contract_category || 'equipment',
+            description: values.description
+          };
 
-      const response = await fetch(`${API_BASE}/contracts/expense`, {
-        method: 'POST',
-        headers: getAuthHeaders(),
-        body: JSON.stringify(submitData)
-      });
+          const response = await fetch(`${API_BASE}/contracts/expense`, {
+            method: 'POST',
+            headers: getAuthHeaders(),
+            body: JSON.stringify(submitData)
+          });
 
-      const result = await response.json();
+          const result = await response.json();
 
-      if (result.success) {
-        message.success(`支出合同创建成功！合同编号：${result.data.contract_no}`);
-        // 如果有超量，提示需要额外审批
-        if (hasOverage) {
-          message.info('由于存在超量采购，该合同需要预算员审批');
+          if (result.success) {
+            message.success(`支出合同创建成功！合同编号：${result.data.contract_no}`);
+            // 如果有超量，提示需要额外审批
+            if (hasOverage) {
+              message.info('由于存在超量采购，该合同需要预算员审批');
+            }
+            // 跳转到合同列表
+            navigate('/contract/list');
+          } else {
+            message.error(result.message || '创建失败');
+          }
+        } catch (error) {
+          console.error('创建合同失败:', error);
+          message.error('创建合同失败');
+        } finally {
+          setLoading(false);
         }
-        // 跳转到合同列表
-        navigate('/contract/list');
-      } else {
-        message.error(result.message || '创建失败');
       }
-    } catch (error) {
-      console.error('创建合同失败:', error);
-      message.error('创建合同失败');
-    } finally {
-      setLoading(false);
-    }
+    });
   };
 
   // 取消
@@ -1011,6 +1054,12 @@ function ExpenseContractCreate() {
               </Form.Item>
             </Col>
           </Row>
+          <Form.Item
+            name="tax_no"
+            label="税号"
+          >
+            <Input placeholder="请输入纳税人识别号" />
+          </Form.Item>
           <Form.Item style={{ marginBottom: 0, textAlign: 'right' }}>
             <Space>
               <Button onClick={() => {

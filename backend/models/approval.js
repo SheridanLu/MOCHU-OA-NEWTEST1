@@ -1105,3 +1105,181 @@ module.exports = {
   ApprovalSteps,
   ApprovalRoleMap
 };
+
+/**
+ * 获取劳务签证待审批列表
+ * @param {string[]} roles - 用户角色数组
+ * @param {object} options - 分页选项
+ * @returns {object} { list, total }
+ */
+function getLaborVisaPendingApprovals(roles, { page = 1, pageSize = 10 } = {}) {
+  // 检查用户角色是否有权限审批劳务签证
+  const approvalRoles = ['BUDGET', 'GM']; // 预算管理和总经理
+  const hasPermission = roles.some(r => approvalRoles.includes(r));
+  if (!hasPermission) {
+    return { list: [], total: 0 };
+  }
+
+  // 查询待审批的劳务签证
+  const sql = `
+    SELECT 
+      lv.id,
+      lv.visa_no as approval_no,
+      lv.title,
+      lv.project_id,
+      p.project_no,
+      p.name as project_name,
+      lv.visa_type,
+      lv.amount,
+      lv.description,
+      lv.reason,
+      lv.status,
+      lv.applicant_id,
+      u.real_name as applicant_name,
+      lv.applied_at as created_at,
+      lva.step as current_step,
+      lva.role as approval_role,
+      CASE lva.role
+        WHEN 'BUDGET' THEN '预算管理'
+        WHEN 'GM' THEN '总经理'
+        ELSE lva.role
+      END as current_approver
+    FROM labor_visas lv
+    JOIN labor_visa_approvals lva ON lv.id = lva.visa_id
+    LEFT JOIN projects p ON lv.project_id = p.id
+    LEFT JOIN users u ON lv.applicant_id = u.id
+    WHERE lv.status = 'pending'
+      AND lva.action = 'pending'
+      AND lva.role IN (${roles.map(() => '?').join(',')})
+    ORDER BY lv.applied_at DESC
+  `;
+
+  const list = db.prepare(sql).all(...roles);
+
+  return {
+    list: list.map(item => ({
+      ...item,
+      approval_type: 'labor_visa',
+      type_name: '劳务签证'
+    })),
+    total: list.length
+  };
+}
+
+module.exports.getLaborVisaPendingApprovals = getLaborVisaPendingApprovals;
+
+/**
+ * 获取支出合同待审批列表
+ */
+function getExpenseContractPendingApprovals(roleCodes, { page = 1, pageSize = 10 } = {}) {
+  const approvalRoles = ['FINANCE', 'LEGAL', 'GM'];
+  const hasPermission = roleCodes.some(r => approvalRoles.includes(r));
+  if (!hasPermission) return { list: [], total: 0 };
+
+  const sql = `
+    SELECT c.*, p.project_no, p.name as project_name, s.name as supplier_name,
+           u.real_name as applicant_name, c.created_at as created_at,
+           'expense_contract' as approval_type, '支出合同' as type_name,
+           c.current_approver as current_approver
+    FROM contracts c
+    LEFT JOIN projects p ON c.project_id = p.id
+    LEFT JOIN suppliers s ON c.supplier_id = s.id
+    LEFT JOIN users u ON c.creator_id = u.id
+    WHERE c.type = 'expense' AND c.status = 'pending'
+    ORDER BY c.created_at DESC
+  `;
+  const list = db.prepare(sql).all();
+  return { list, total: list.length };
+}
+
+/**
+ * 获取入库单待审批列表
+ */
+function getStockInPendingApprovals(roleCodes, { page = 1, pageSize = 10 } = {}) {
+  const approvalRoles = ['MATERIAL', 'PURCHASE', 'GM'];
+  const hasPermission = roleCodes.some(r => approvalRoles.includes(r));
+  if (!hasPermission) return { list: [], total: 0 };
+
+  const sql = `
+    SELECT si.*, p.project_no, p.name as project_name,
+           u.real_name as applicant_name, si.created_at as created_at,
+           'stock_in' as approval_type, '入库单' as type_name
+    FROM stock_in si
+    LEFT JOIN projects p ON si.project_id = p.id
+    LEFT JOIN users u ON si.creator_id = u.id
+    WHERE si.approval_status = 'pending'
+    ORDER BY si.created_at DESC
+  `;
+  const list = db.prepare(sql).all();
+  return { list, total: list.length };
+}
+
+/**
+ * 获取零星采购待审批列表
+ */
+function getSporadicPurchasePendingApprovals(roleCodes, { page = 1, pageSize = 10 } = {}) {
+  const approvalRoles = ['BUDGET', 'GM'];
+  const hasPermission = roleCodes.some(r => approvalRoles.includes(r));
+  if (!hasPermission) return { list: [], total: 0 };
+
+  const sql = `
+    SELECT sp.*, p.project_no, p.name as project_name,
+           u.real_name as applicant_name, sp.created_at as created_at,
+           'sporadic_purchase' as approval_type, '零星采购' as type_name
+    FROM sporadic_purchases sp
+    LEFT JOIN projects p ON sp.project_id = p.id
+    LEFT JOIN users u ON sp.creator_id = u.id
+    WHERE sp.status = 'pending'
+    ORDER BY sp.created_at DESC
+  `;
+  const list = db.prepare(sql).all();
+  return { list, total: list.length };
+}
+
+/**
+ * 获取现场签证待审批列表
+ */
+function getSiteVisaPendingApprovals(roleCodes, { page = 1, pageSize = 10 } = {}) {
+  const approvalRoles = ['BUDGET', 'GM'];
+  const hasPermission = roleCodes.some(r => approvalRoles.includes(r));
+  if (!hasPermission) return { list: [], total: 0 };
+
+  const sql = `
+    SELECT cv.*, p.project_no, p.name as project_name,
+           u.real_name as applicant_name, cv.created_at as created_at,
+           'site_visa' as approval_type, '现场签证' as type_name
+    FROM change_visa cv
+    LEFT JOIN projects p ON cv.project_id = p.id
+    LEFT JOIN users u ON cv.creator_id = u.id
+    WHERE cv.status = 'pending'
+    ORDER BY cv.created_at DESC
+  `;
+  const list = db.prepare(sql).all();
+  return { list, total: list.length };
+}
+
+/**
+ * 获取超量审批待审批列表
+ */
+function getOverageApprovalPendingApprovals(roleCodes, { page = 1, pageSize = 10 } = {}) {
+  const approvalRoles = ['BUDGET', 'GM'];
+  const hasPermission = roleCodes.some(r => approvalRoles.includes(r));
+  if (!hasPermission) return { list: [], total: 0 };
+
+  const sql = `
+    SELECT oa.*, u.real_name as applicant_name,
+           'overage_approval' as approval_type, '超量审批' as type_name
+    FROM overage_approvals oa
+    LEFT JOIN users u ON oa.applicant_id = u.id
+    WHERE oa.status = 'pending'
+    ORDER BY oa.created_at DESC
+  `;
+  const list = db.prepare(sql).all();
+  return { list, total: list.length };
+}
+
+module.exports.getExpenseContractPendingApprovals = getExpenseContractPendingApprovals;
+module.exports.getStockInPendingApprovals = getStockInPendingApprovals;
+module.exports.getSporadicPurchasePendingApprovals = getSporadicPurchasePendingApprovals;
+module.exports.getSiteVisaPendingApprovals = getSiteVisaPendingApprovals;
+module.exports.getOverageApprovalPendingApprovals = getOverageApprovalPendingApprovals;

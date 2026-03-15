@@ -139,7 +139,7 @@ function DeviationWarning() {
       params.append('page', pagination.current);
       params.append('pageSize', pagination.pageSize);
 
-      const response = await fetch(`${API_BASE}/construction/warnings?${params}`, {
+      const response = await fetch(`${API_BASE}/progress-alerts?${params}`, {
         headers: getAuthHeaders()
       });
       const result = await response.json();
@@ -166,7 +166,7 @@ function DeviationWarning() {
       const params = new URLSearchParams();
       if (filters.projectId) params.append('projectId', filters.projectId);
 
-      const response = await fetch(`${API_BASE}/construction/warnings/stats?${params}`, {
+      const response = await fetch(`${API_BASE}/progress-alerts/stats?${params}`, {
         headers: getAuthHeaders()
       });
       const result = await response.json();
@@ -192,8 +192,8 @@ function DeviationWarning() {
         : {};
 
       const url = filters.projectId 
-        ? `${API_BASE}/construction/warnings/check`
-        : `${API_BASE}/construction/warnings/check-all`;
+        ? `${API_BASE}/progress-alerts/check`
+        : `${API_BASE}/progress-alerts/check-all`;
 
       const response = await fetch(url, {
         method: 'POST',
@@ -218,7 +218,7 @@ function DeviationWarning() {
   // 查看详情
   const handleViewDetail = async (record) => {
     try {
-      const response = await fetch(`${API_BASE}/construction/warnings/${record.id}`, {
+      const response = await fetch(`${API_BASE}/progress-alerts/${record.id}`, {
         headers: getAuthHeaders()
       });
       const result = await response.json();
@@ -246,7 +246,7 @@ function DeviationWarning() {
   const handleWarningSubmit = async (values) => {
     setHandleLoading(true);
     try {
-      const response = await fetch(`${API_BASE}/construction/warnings/${currentWarning.id}/handle`, {
+      const response = await fetch(`${API_BASE}/progress-alerts/${currentWarning.id}/handle`, {
         method: 'PUT',
         headers: getAuthHeaders(),
         body: JSON.stringify({
@@ -278,7 +278,7 @@ function DeviationWarning() {
     setSelectedProjectId(projectId);
     setAnalysisVisible(true);
     try {
-      const response = await fetch(`${API_BASE}/construction/warnings/analysis/${projectId}`, {
+      const response = await fetch(`${API_BASE}/progress-alerts/analysis/${projectId}`, {
         headers: getAuthHeaders()
       });
       const result = await response.json();

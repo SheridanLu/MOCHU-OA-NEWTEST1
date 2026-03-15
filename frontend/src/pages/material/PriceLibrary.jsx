@@ -75,7 +75,9 @@ const UNITS = [
   { value: '个', label: '个' },
   { value: '件', label: '件' },
   { value: '平方', label: '平方' },
-  { value: '立方', label: '立方' }
+  { value: '立方', label: '立方' },
+  { value: '台', label: '台' },
+  { value: '支', label: '支' }
 ];
 
 function PriceLibrary() {
@@ -307,10 +309,10 @@ function PriceLibrary() {
       align: 'center'
     },
     {
-      title: '价格(元)',
+      title: '基准价/含税(元)',
       dataIndex: 'base_price',
       key: 'base_price',
-      width: 120,
+      width: 140,
       align: 'right',
       render: (value) => (
         <Text strong style={{ color: '#1890ff' }}>
@@ -325,6 +327,26 @@ function PriceLibrary() {
       width: 80,
       align: 'center',
       render: (value) => `${value || 13}%`
+    },
+    {
+      title: '预警阈值',
+      dataIndex: 'warning_threshold',
+      key: 'warning_threshold',
+      width: 100,
+      align: 'center',
+      render: (value) => (
+        <Tag color="orange">{value || 1}%</Tag>
+      )
+    },
+    {
+      title: '严重阈值',
+      dataIndex: 'critical_threshold',
+      key: 'critical_threshold',
+      width: 100,
+      align: 'center',
+      render: (value) => (
+        <Tag color="red">{value || 3}%</Tag>
+      )
     },
     {
       title: '生效日期',
@@ -618,14 +640,14 @@ function PriceLibrary() {
             <Col span={8}>
               <Form.Item
                 name="base_price"
-                label="价格(元)"
+                label="基准价/含税(元)"
                 rules={[
                   { required: true, message: '请输入价格' },
                   { type: 'number', min: 0.01, message: '价格必须大于0' }
                 ]}
               >
                 <InputNumber
-                  placeholder="请输入价格"
+                  placeholder="请输入含税价格"
                   style={{ width: '100%' }}
                   precision={2}
                   min={0}
@@ -636,10 +658,11 @@ function PriceLibrary() {
             <Col span={4}>
               <Form.Item
                 name="tax_rate"
-                label="税率(%)"
+                label="税率"
                 initialValue={13}
               >
                 <Select placeholder="税率">
+                  <Option value={0}>0%</Option>
                   <Option value={1}>1%</Option>
                   <Option value={3}>3%</Option>
                   <Option value={6}>6%</Option>
@@ -664,6 +687,42 @@ function PriceLibrary() {
                 label="失效日期"
               >
                 <DatePicker style={{ width: '100%' }} />
+              </Form.Item>
+            </Col>
+          </Row>
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item
+                name="warning_threshold"
+                label="预警阈值(%)"
+                initialValue={1}
+                tooltip="价格波动超过此阈值时显示预警"
+              >
+                <InputNumber
+                  placeholder="预警阈值"
+                  style={{ width: '100%' }}
+                  precision={2}
+                  min={0}
+                  max={100}
+                  suffix="%"
+                />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item
+                name="critical_threshold"
+                label="严重阈值(%)"
+                initialValue={3}
+                tooltip="价格波动超过此阈值时显示严重预警"
+              >
+                <InputNumber
+                  placeholder="严重阈值"
+                  style={{ width: '100%' }}
+                  precision={2}
+                  min={0}
+                  max={100}
+                  suffix="%"
+                />
               </Form.Item>
             </Col>
           </Row>

@@ -19,7 +19,9 @@ import {
   Statistic,
   Row,
   Col,
-  Empty
+  Empty,
+  Alert,
+  Steps
 } from 'antd';
 import {
   ArrowLeftOutlined,
@@ -31,7 +33,9 @@ import {
   ShoppingOutlined,
   FileTextOutlined,
   SortAscendingOutlined,
-  SortDescendingOutlined
+  SortDescendingOutlined,
+  CheckCircleOutlined,
+  ExclamationCircleOutlined
 } from '@ant-design/icons';
 
 const { TextArea } = Input;
@@ -83,6 +87,10 @@ function PurchaseListDetail() {
   const [modalVisible, setModalVisible] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
   const [form] = Form.useForm();
+  
+  // 提交审批弹窗
+  const [submitModalVisible, setSubmitModalVisible] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   
   // 加载数据
   const loadData = useCallback(async () => {
@@ -202,6 +210,49 @@ function PurchaseListDetail() {
     } else {
       setSortField(field);
       setSortOrder('ASC');
+    }
+  };
+  
+  // 提交审批
+  const handleSubmitApproval = () => {
+    if (!list) return;
+    
+    if (items.length === 0) {
+      message.warning('采购清单中没有物资，无法提交审批');
+      return;
+    }
+    
+    if (list.status !== 'draft') {
+      message.warning('只有草稿状态的采购清单才能提交审批');
+      return;
+    }
+    
+    setSubmitModalVisible(true);
+  };
+  
+  // 确认提交审批
+  const confirmSubmitApproval = async () => {
+    setSubmitting(true);
+    try {
+      const response = await fetch(`${API_BASE}/purchase-lists/${id}/submit`, {
+        method: 'POST',
+        headers: getAuthHeaders()
+      });
+      
+      const result = await response.json();
+      
+      if (result.success) {
+        message.success('采购清单已提交审批');
+        setSubmitModalVisible(false);
+        loadData();
+      } else {
+        message.error(result.message || '提交失败');
+      }
+    } catch (error) {
+      console.error('提交审批失败:', error);
+      message.error('提交审批失败');
+    } finally {
+      setSubmitting(false);
     }
   };
   
@@ -409,13 +460,24 @@ function PurchaseListDetail() {
           </Space>
         }
         extra={
-          <Button
-            type="primary"
-            icon={<PlusOutlined />}
-            onClick={handleAdd}
-          >
-            新增物资
-          </Button>
+          <Space>
+            {list && list.status === 'draft' && (
+              <Button
+                type="primary"
+                icon={<CheckCircleOutlined />}
+                onClick={handleSubmitApproval}
+              >
+                提交审批
+              </Button>
+            )}
+            <Button
+              type="primary"
+              icon={<PlusOutlined />}
+              onClick={handleAdd}
+            >
+              新增物资
+            </Button>
+          </Space>
         }
       >
         <Table
@@ -570,6 +632,45 @@ function PurchaseListDetail() {
             />
           </Form.Item>
         </Form>
+      </Modal>
+      
+      {/* 提交审批弹窗 */}
+      <Modal
+        title="采购清单审批流程"
+        open={submitModalVisible}
+        onCancel={() => setSubmitModalVisible(false)}
+        onOk={confirmSubmitApproval}
+        confirmLoading={submitting}
+        okText="确认提交"
+        cancelText="取消"
+        width={600}
+      >
+        <Alert 
+          message="提交后将按以下流程审批" 
+          type="info" 
+          showIcon 
+          style={{ marginBottom: 16 }}
+        />
+        <Steps direction="vertical" size="small" current={-1}>
+          <Steps.Step 
+            title="财务管理" 
+            description="审核采购清单金额、物资明细等财务相关内容"
+            status="wait"
+          />
+          <Steps.Step 
+            title="总经理" 
+            description="最终审批确认"
+            status="wait"
+          />
+        </Steps>
+        <Divider />
+        {list && (
+          <div style={{ marginTop: 16 }}>
+            <p><strong>清单名称：</strong>{list.name}</p>
+            <p><strong>物资数量：</strong>{summary.total_items} 项</p>
+            <p><strong>总数量：</strong>{parseFloat(summary.total_quantity).toLocaleString()}</p>
+          </div>
+        )}
       </Modal>
     </div>
   );

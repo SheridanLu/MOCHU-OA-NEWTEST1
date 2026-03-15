@@ -1647,7 +1647,8 @@ router.get('/labor-settlement/projects/completed', (req, res) => {
   try {
     const { keyword } = req.query;
 
-    let whereClause = "status IN ('completed', 'in_progress')";
+    // 修改状态过滤：包含 active, pending, in_progress, completed 状态的实体项目
+    let whereClause = "type = 'entity' AND status IN ('active', 'pending', 'in_progress', 'completed')";
     const params = [];
 
     if (keyword) {

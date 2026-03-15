@@ -11,12 +11,43 @@ const { db } = require('../models/database');
  * @param {string} projectNo - 项目编号
  * @returns {string} 对账单编号
  */
-function generateStatementNo(projectNo) {
-  const now = new Date();
-  const yearMonth = now.getFullYear().toString().slice(2) + 
-                   String(now.getMonth() + 1).padStart(2, '0');
-  const projectSuffix = projectNo ? projectNo.slice(-4) : '0000';
-  return `ZD${yearMonth}${projectSuffix}`;
+/**
+ * 生成对账单编号
+ * 格式：项目编号-ZD + 序号（如：P260312002-ZD01）
+ * @param {number} projectId - 项目ID
+ * @returns {string} 对账单编号
+ */
+function generateStatementNo(projectId) {
+  // 获取项目编号
+  const project = db.prepare('SELECT project_no FROM projects WHERE id = ?').get(projectId);
+  if (!project) {
+    throw new Error('项目不存在');
+  }
+  
+  const projectNo = project.project_no;
+  
+  // 获取该项目已有对账单数量（包括已删除的，确保编号不重复）
+  const count = db.prepare(`
+    SELECT COUNT(*) as total FROM income_statements WHERE project_id = ?
+  `).get(projectId);
+  
+  // 从1开始尝试，直到找到未使用的编号
+  let seq = (count?.total || 0) + 1;
+  let statementNo;
+  let exists;
+  
+  do {
+    const seqStr = String(seq).padStart(2, '0');
+    statementNo = `${projectNo}-ZD${seqStr}`;
+    
+    // 检查该编号是否已存在
+    exists = db.prepare('SELECT id FROM income_statements WHERE statement_no = ?').get(statementNo);
+    if (exists) {
+      seq++;
+    }
+  } while (exists);
+  
+  return statementNo;
 }
 
 /**
@@ -50,73 +81,102 @@ function getProjectContract(projectId) {
 
 /**
  * 计算项目进度产值
- * Task 45: 根据采购清单、出库记录等计算项目进度
+ * Task 45 & 55: 根据施工进度填报计算项目进度产值
  * @param {number} projectId - 项目ID
- * @returns {object} { progressAmount, progressRate, details }
+ * @param {string} periodEnd - 期间结束日期（可选，用于获取截至某日期的进度）
+ * @returns {object} { progressAmount, progressRate, details, workContent }
  */
-function calculateProgress(projectId) {
-  // 获取项目合同金额
+function calculateProgress(projectId, periodEnd = null) {
+  // 获取项目合同金额（优先使用合同表，否则使用项目表）
   const project = db.prepare(`
-    SELECT p.*, c.amount as contract_amount
+    SELECT p.*, 
+      COALESCE(c.amount, p.contract_amount) as contract_amount
     FROM projects p
-    LEFT JOIN contracts c ON p.id = c.project_id AND c.type = 'income'
+    LEFT JOIN contracts c ON p.id = c.project_id AND c.type = 'income' AND c.status = 'active'
     WHERE p.id = ?
   `).get(projectId);
 
   if (!project) {
-    return { progressAmount: 0, progressRate: 0, details: [] };
+    return { progressAmount: 0, progressRate: 0, details: [], workContent: '' };
   }
 
   const contractAmount = parseFloat(project.contract_amount) || 0;
 
-  // 计算已出库物资总金额（作为进度参考）
-  const stockOutTotal = db.prepare(`
-    SELECT COALESCE(SUM(so.total_amount), 0) as total
-    FROM stock_out so
-    WHERE so.project_id = ? AND so.status = 'confirmed'
-  `).get(projectId);
-
-  // 计算已采购物资总金额
-  const purchaseTotal = db.prepare(`
-    SELECT COALESCE(SUM(bp.total_amount), 0) as total
-    FROM batch_purchases bp
-    WHERE bp.project_id = ? AND bp.status = 'approved'
-  `).get(projectId);
-
-  // 计算零星采购总金额
-  const sporadicTotal = db.prepare(`
-    SELECT COALESCE(SUM(sp.total_amount), 0) as total
-    FROM sporadic_purchases sp
-    WHERE sp.project_id = ? AND sp.status = 'approved'
-  `).get(projectId);
-
-  const progressAmount = parseFloat(stockOutTotal?.total || 0);
-  const purchaseAmount = parseFloat(purchaseTotal?.total || 0) + parseFloat(sporadicTotal?.total || 0);
+  // 从施工进度填报获取最新进度
+  let constructionProgress = null;
+  let progressRate = 0;
+  let workContent = '';
   
-  // 进度百分比 = 已出库金额 / 合同金额 * 100
-  const progressRate = contractAmount > 0 ? 
-    Math.min((progressAmount / contractAmount) * 100, 100) : 0;
+  try {
+    // 获取最新的施工进度填报记录（状态为 submitted 或 approved）
+    const progressQuery = periodEnd 
+      ? `SELECT * FROM construction_progress WHERE project_id = ? AND report_date <= ? AND status IN ('submitted', 'approved') ORDER BY report_date DESC LIMIT 1`
+      : `SELECT * FROM construction_progress WHERE project_id = ? AND status IN ('submitted', 'approved') ORDER BY report_date DESC LIMIT 1`;
+    
+    const params = periodEnd ? [projectId, periodEnd] : [projectId];
+    constructionProgress = db.prepare(progressQuery).get(...params);
+    
+    if (constructionProgress) {
+      progressRate = parseFloat(constructionProgress.progress_rate) || 0;
+      workContent = constructionProgress.work_content || '';
+    }
+  } catch (e) {
+    console.log('获取施工进度失败:', e.message);
+  }
+
+  // 如果没有施工进度，使用出库金额计算
+  if (!constructionProgress || progressRate === 0) {
+    const stockOutTotal = db.prepare(`
+      SELECT COALESCE(SUM(so.total_amount), 0) as total
+      FROM stock_out so
+      WHERE so.project_id = ? AND so.status = 'confirmed'
+    `).get(projectId);
+
+    const stockAmount = parseFloat(stockOutTotal?.total || 0);
+    progressRate = contractAmount > 0 ? Math.min((stockAmount / contractAmount) * 100, 100) : 0;
+  }
+
+  // 计算累计产值 = 合同金额 × 进度百分比
+  const progressAmount = Math.round(contractAmount * progressRate / 100 * 100) / 100;
+
+  // 获取施工进度历史明细
+  const progressHistory = db.prepare(`
+    SELECT report_date, progress_rate, work_content
+    FROM construction_progress
+    WHERE project_id = ? AND status = 'approved'
+    ORDER BY report_date DESC
+    LIMIT 5
+  `).all(projectId);
 
   // 构建明细
   const details = [
     {
-      item_name: '已出库物资',
-      description: '已完成出库的物资总金额',
+      item_name: '施工进度产值',
+      description: workContent || '根据施工进度填报计算',
       amount: progressAmount,
       progress_value: progressRate
-    },
-    {
-      item_name: '已采购物资',
-      description: '已审批通过的采购金额',
-      amount: purchaseAmount,
-      progress_value: contractAmount > 0 ? (purchaseAmount / contractAmount) * 100 : 0
     }
   ];
+
+  // 添加历史进度明细
+  if (progressHistory.length > 0) {
+    progressHistory.forEach((h, index) => {
+      const histAmount = Math.round(contractAmount * (h.progress_rate || 0) / 100 * 100) / 100;
+      details.push({
+        item_name: `进度记录 (${h.report_date})`,
+        description: h.work_content || '',
+        amount: histAmount,
+        progress_value: h.progress_rate || 0
+      });
+    });
+  }
 
   return {
     progressAmount,
     progressRate: Math.round(progressRate * 100) / 100,
-    details
+    details,
+    workContent,
+    constructionProgressId: constructionProgress?.id || null
   };
 }
 
@@ -190,11 +250,11 @@ function generateMonthly(projectId, options = {}) {
   // 同步合同信息
   const contractInfo = syncContract(projectId);
 
-  // 计算进度
-  const progressInfo = calculateProgress(projectId);
+  // 计算进度（传入期间结束日期以获取截至该日期的施工进度）
+  const progressInfo = calculateProgress(projectId, periodEnd);
 
-  // 生成对账单编号
-  const statementNo = generateStatementNo(project.project_no);
+  // 生成对账单编号（使用项目ID）
+  const statementNo = generateStatementNo(projectId);
 
   // 计算确认金额和差异
   const confirmedAmount = Math.round(contractInfo.contractAmount * progressInfo.progressRate / 100 * 100) / 100;
@@ -202,15 +262,16 @@ function generateMonthly(projectId, options = {}) {
 
   // 使用事务插入数据
   const transaction = db.transaction(() => {
-    // 插入对账单主表
+    // 插入对账单主表（包含施工进度关联和形象进度描述）
     const result = db.prepare(`
       INSERT INTO income_statements (
         statement_no, project_id, contract_id,
         period_start, period_end,
         contract_amount, progress_amount, progress_rate,
         confirmed_amount, difference,
+        construction_progress_id, progress_description,
         status, creator_id
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'draft', ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       statementNo,
       projectId,
@@ -222,6 +283,9 @@ function generateMonthly(projectId, options = {}) {
       progressInfo.progressRate,
       confirmedAmount,
       difference,
+      progressInfo.constructionProgressId || null,
+      progressInfo.workContent || null,
+      'draft',
       options.creatorId || null
     );
 

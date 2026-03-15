@@ -1183,7 +1183,8 @@ router.post('/suppliers', checkPermission('supplier:create'), (req, res) => {
     address,
     bank_name,
     bank_account,
-    contact_region
+    contact_region,
+    tax_no
   } = req.body;
 
   if (!name || !name.trim()) {
@@ -1195,9 +1196,9 @@ router.post('/suppliers', checkPermission('supplier:create'), (req, res) => {
 
   try {
     const result = db.prepare(`
-      INSERT INTO suppliers (name, contact_person, phone, email, address, bank_name, bank_account, contact_region)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(name.trim(), contact_person, phone, email, address, bank_name, bank_account, contact_region);
+      INSERT INTO suppliers (name, contact_person, phone, email, address, bank_name, bank_account, contact_region, tax_no)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(name.trim(), contact_person, phone, email, address, bank_name, bank_account, contact_region, tax_no || null);
 
     const newSupplier = db.prepare('SELECT * FROM suppliers WHERE id = ?').get(result.lastInsertRowid);
 
@@ -1316,7 +1317,7 @@ router.get('/overcheck', (req, res) => {
     }
 
     // 获取总数
-    const countSql = sql.replace(/SELECT[\s\S]*?FROM/, 'SELECT COUNT(*) as total FROM');
+    const countSql = sql.replace(/SELECT.*FROM/, 'SELECT COUNT(*) as total FROM');
     const countResult = db.prepare(countSql).get(...params);
     const total = countResult ? countResult.total : 0;
 

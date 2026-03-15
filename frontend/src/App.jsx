@@ -56,11 +56,15 @@ import MaterialPayment from './pages/finance/MaterialPayment';
 import CostReport from './pages/report/CostReport';
 import PaymentList from './pages/finance/PaymentList';
 import FinanceChart from './pages/finance/FinanceChart';
+import ProjectReceipt from './pages/finance/ProjectReceipt';
 
 // 施工管理模块
 import Milestone from './pages/construction/Milestone';
 import ProgressReport from './pages/construction/ProgressReport';
 import DeviationWarning from './pages/construction/DeviationWarning';
+import TaskGantt from './pages/construction/TaskGantt';
+import LaborVisaList from './pages/laborVisa/LaborVisaList';
+import TodoList from './pages/todo/TodoList';
 
 // 变更管理模块
 import OverageChange from './pages/change/OverageChange';
@@ -101,6 +105,7 @@ const getFilteredMenuConfig = () => {
   }
   
   systemChildren.push(
+    { key: 'todos', name: '我的待办', path: '/todos' },
     { key: 'announcements', name: '通知公告', path: '/system/announcements' },
     { key: 'audit', name: '操作日志', path: '/system/audit' }
   );
@@ -169,6 +174,7 @@ const getFilteredMenuConfig = () => {
       { key: 'payments', name: '付款管理', path: '/finance/payments' },
       { key: 'labor', name: '人工费付款', path: '/finance/labor-payment' },
       { key: 'material', name: '材料款付款', path: '/finance/material-payment' },
+      { key: 'receipt', name: '项目收款登记', path: '/finance/project-receipt' },
       { key: 'report', name: '成本报表', path: '/finance/cost-report' },
     ]
   },
@@ -178,8 +184,10 @@ const getFilteredMenuConfig = () => {
     icon: '🏗️',
     children: [
       { key: 'milestone', name: '里程碑设置', path: '/construction/milestone' },
+      { key: 'task-gantt', name: '任务甘特图', path: '/construction/task-gantt' },
       { key: 'progress', name: '进度填报', path: '/construction/progress' },
       { key: 'warning', name: '偏差预警', path: '/construction/warning' },
+      { key: 'labor-visa', name: '劳务签证', path: '/construction/labor-visa' },
     ]
   },
   {
@@ -492,6 +500,11 @@ function App() {
           </ProtectedRoute>
         } />
 
+        {/* 待办事项 */}
+        <Route path="/todos" element={
+          <ProtectedRoute><MainLayout><TodoList /></MainLayout></ProtectedRoute>
+        } />
+
         {/* 系统管理 */}
         <Route path="/system/organization" element={
           <ProtectedRoute><MainLayout><DepartmentManage /></MainLayout></ProtectedRoute>
@@ -613,16 +626,25 @@ function App() {
         <Route path="/finance/cost-report" element={
           <ProtectedRoute><MainLayout><CostReport /></MainLayout></ProtectedRoute>
         } />
+        <Route path="/finance/project-receipt" element={
+          <ProtectedRoute><MainLayout><ProjectReceipt /></MainLayout></ProtectedRoute>
+        } />
 
         {/* 施工管理 */}
         <Route path="/construction/milestone" element={
           <ProtectedRoute><MainLayout><Milestone /></MainLayout></ProtectedRoute>
+        } />
+        <Route path="/construction/task-gantt" element={
+          <ProtectedRoute><MainLayout><TaskGantt /></MainLayout></ProtectedRoute>
         } />
         <Route path="/construction/progress" element={
           <ProtectedRoute><MainLayout><ProgressReport /></MainLayout></ProtectedRoute>
         } />
         <Route path="/construction/warning" element={
           <ProtectedRoute><MainLayout><DeviationWarning /></MainLayout></ProtectedRoute>
+        } />
+        <Route path="/construction/labor-visa" element={
+          <ProtectedRoute><MainLayout><LaborVisaList /></MainLayout></ProtectedRoute>
         } />
 
         {/* 变更管理 */}
