@@ -844,7 +844,14 @@ function LaborSettlement() {
       <Modal
         title={editingSettlement ? '编辑劳务结算' : '新建劳务结算'}
         open={formVisible}
-        onOk={() => form.submit()}
+        onOk={() => {
+          form.validateFields()
+            .then(values => handleSubmit(values))
+            .catch(errorInfo => {
+              console.log('表单验证失败:', errorInfo);
+              message.error('请填写必填字段');
+            });
+        }}
         onCancel={() => setFormVisible(false)}
         width={600}
       >
@@ -1025,7 +1032,14 @@ function LaborSettlement() {
       <Modal
         title="审批劳务结算"
         open={approveVisible}
-        onOk={() => approveForm.submit()}
+        onOk={() => {
+          approveForm.validateFields()
+            .then(values => handleApproveSubmit(values))
+            .catch(errorInfo => {
+              console.log('表单验证失败:', errorInfo);
+              message.error('请填写必填字段');
+            });
+        }}
         onCancel={() => setApproveVisible(false)}
       >
         {approvingSettlement && (
@@ -1074,7 +1088,14 @@ function LaborSettlement() {
       <Modal
         title="确认支付"
         open={payVisible}
-        onOk={() => payForm.submit()}
+        onOk={() => {
+          payForm.validateFields()
+            .then(values => handlePaySubmit(values))
+            .catch(errorInfo => {
+              console.log('表单验证失败:', errorInfo);
+              message.error('请填写必填字段');
+            });
+        }}
         onCancel={() => setPayVisible(false)}
       >
         {payingSettlement && (

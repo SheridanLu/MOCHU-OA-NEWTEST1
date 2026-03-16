@@ -1030,7 +1030,14 @@ function ProjectList() {
               <Form.Item
                 name="bid_notice_file"
                 label="中标通知书附件"
+                rules={[{ required: true, message: '请上传中标通知书附件' }]}
                 extra="支持 PDF、图片、Word 文档，最大 10MB"
+                getValueFromEvent={(e) => {
+                  if (Array.isArray(e)) {
+                    return e;
+                  }
+                  return e?.fileList;
+                }}
               >
                 <Upload
                   name="bid_notice_file"

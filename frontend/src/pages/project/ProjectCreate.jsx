@@ -12,13 +12,20 @@ import {
   Row,
   Col,
   Divider,
-  Tag
+  Tag,
+  Modal,
+  Alert,
+  Steps,
+  Typography
 } from 'antd';
 import {
   SaveOutlined,
   RollbackOutlined,
   ProjectOutlined,
-  NumberOutlined
+  NumberOutlined,
+  CheckCircleOutlined,
+  CloseCircleOutlined,
+  InfoCircleOutlined
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 
@@ -46,6 +53,8 @@ function ProjectCreate() {
   const [loading, setLoading] = useState(false);
   const [previewNo, setPreviewNo] = useState('');
   const [managers, setManagers] = useState([]);
+  const [submitModalVisible, setSubmitModalVisible] = useState(false);
+  const [pendingValues, setPendingValues] = useState(null);
 
   // 加载负责人列表（用户列表）
   const loadManagers = useCallback(async () => {
@@ -84,18 +93,27 @@ function ProjectCreate() {
   }, [loadManagers, loadPreviewNo]);
 
   // 提交表单
+  // 提交表单 - 显示审批流程确认弹窗
   const handleSubmit = async (values) => {
-    console.log('开始提交项目:', values);
+    setPendingValues(values);
+    setSubmitModalVisible(true);
+  };
+  
+  // 确认提交项目立项
+  const confirmSubmit = async () => {
+    if (!pendingValues) return;
+    
+    console.log('开始提交项目:', pendingValues);
     setLoading(true);
     try {
       // 处理日期
-      const [start_date, end_date] = values.dateRange || [null, null];
+      const [start_date, end_date] = pendingValues.dateRange || [null, null];
       
       const submitData = {
-        name: values.name,
-        customer: values.customer,
-        contract_amount: values.contract_amount || 0,
-        manager_id: values.manager_id,
+        name: pendingValues.name,
+        customer: pendingValues.customer,
+        contract_amount: pendingValues.contract_amount || 0,
+        manager_id: pendingValues.manager_id,
         start_date: start_date ? start_date.format('YYYY-MM-DD') : null,
         end_date: end_date ? end_date.format('YYYY-MM-DD') : null
       };
@@ -112,7 +130,8 @@ function ProjectCreate() {
       console.log('响应结果:', result);
 
       if (result.success) {
-        message.success(`项目创建成功！项目编号：${result.data.project_no}`);
+        message.success(`项目立项申请已提交！项目编号：${result.data.project_no}`);
+        setSubmitModalVisible(false);
         // 跳转到项目列表
         setTimeout(() => {
           navigate('/project/list');
@@ -296,6 +315,112 @@ function ProjectCreate() {
           </Row>
         </Form>
       </Card>
+      
+      {/* 提交审批确认弹窗 */}
+      <Modal
+        title={
+          <Space>
+            <ProjectOutlined style={{ color: '#1890ff' }} />
+            <span>项目立项申请</span>
+          </Space>
+        }
+        open={submitModalVisible}
+        onCancel={() => setSubmitModalVisible(false)}
+        onOk={confirmSubmit}
+        okText="确认提交"
+        cancelText="取消"
+        confirmLoading={loading}
+        width={600}
+      >
+        <Alert 
+          message="项目立项申请将进入审批流程" 
+          type="info" 
+          showIcon 
+          style={{ marginBottom: 16 }}
+        />
+        
+        {pendingValues && (
+          <div style={{ marginBottom: 16, padding: 12, background: '#f9f9f9', borderRadius: 4 }}>
+            <Row gutter={[16, 8]}>
+              <Col span={12}>
+                <Typography.Text type="secondary">项目名称：</Typography.Text>
+                <Typography.Text strong>{pendingValues.name}</Typography.Text>
+              </Col>
+              <Col span={12}>
+                <Typography.Text type="secondary">客户：</Typography.Text>
+                <Typography.Text>{pendingValues.customer || '-'}</Typography.Text>
+              </Col>
+              <Col span={12}>
+                <Typography.Text type="secondary">合同金额：</Typography.Text>
+                <Typography.Text strong style={{ color: '#1890ff' }}>
+                  ¥{(pendingValues.contract_amount || 0).toLocaleString()}
+                </Typography.Text>
+              </Col>
+              <Col span={12}>
+                <Typography.Text type="secondary">项目周期：</Typography.Text>
+                <Typography.Text>
+                  {pendingValues.dateRange?.[0]?.format('YYYY-MM-DD') || '-'} 至 {pendingValues.dateRange?.[1]?.format('YYYY-MM-DD') || '-'}
+                </Typography.Text>
+              </Col>
+            </Row>
+          </div>
+        )}
+        
+        <Divider style={{ margin: '16px 0' }} />
+        
+        <div style={{ padding: '12px', background: '#fafafa', borderRadius: 4 }}>
+          <h4 style={{ marginBottom: 12 }}>
+            <InfoCircleOutlined style={{ marginRight: 8, color: '#1890ff' }} />
+            审批流程
+          </h4>
+          <Steps
+            direction="vertical"
+            size="small"
+            items={[
+              {
+                title: '第一步：财务管理',
+                description: (
+                  <div style={{ padding: '4px 0' }}>
+                    <Space direction="vertical" style={{ width: '100%' }} size="small">
+                      <div>
+                        <CheckCircleOutlined style={{ color: '#52c41a', marginRight: 8 }} />
+                        <span style={{ color: '#52c41a' }}>同意</span>
+                        <span style={{ marginLeft: 16, color: '#999', fontSize: 12 }}>流转至总经理审批</span>
+                      </div>
+                      <div>
+                        <CloseCircleOutlined style={{ color: '#ff4d4f', marginRight: 8 }} />
+                        <span style={{ color: '#ff4d4f' }}>不同意</span>
+                        <span style={{ marginLeft: 16, color: '#999', fontSize: 12 }}>需填写不同意原因</span>
+                      </div>
+                    </Space>
+                  </div>
+                ),
+                status: 'process'
+              },
+              {
+                title: '第二步：总经理',
+                description: (
+                  <div style={{ padding: '4px 0' }}>
+                    <Space direction="vertical" style={{ width: '100%' }} size="small">
+                      <div>
+                        <CheckCircleOutlined style={{ color: '#52c41a', marginRight: 8 }} />
+                        <span style={{ color: '#52c41a' }}>同意</span>
+                        <span style={{ marginLeft: 16, color: '#999', fontSize: 12 }}>项目立项成功，生成实体项目编号</span>
+                      </div>
+                      <div>
+                        <CloseCircleOutlined style={{ color: '#ff4d4f', marginRight: 8 }} />
+                        <span style={{ color: '#ff4d4f' }}>不同意</span>
+                        <span style={{ marginLeft: 16, color: '#999', fontSize: 12 }}>需填写不同意原因</span>
+                      </div>
+                    </Space>
+                  </div>
+                ),
+                status: 'wait'
+              }
+            ]}
+          />
+        </div>
+      </Modal>
     </div>
   );
 }

@@ -209,6 +209,7 @@ function TaskGantt() {
   };
 
   const handleSubmit = async (values) => {
+    console.log('handleSubmit 被调用, values:', values);
     try {
       const data = {
         ...values,
@@ -839,7 +840,16 @@ function TaskGantt() {
       <Modal
         title={editingTask ? '编辑任务' : '新建任务'}
         open={modalVisible}
-        onOk={() => form.submit()}
+        onOk={() => {
+          form.validateFields()
+            .then(values => {
+              handleSubmit(values);
+            })
+            .catch(errorInfo => {
+              console.log('表单验证失败:', errorInfo);
+              message.error('请填写必填字段');
+            });
+        }}
         onCancel={() => setModalVisible(false)}
         width={700}
         destroyOnClose
@@ -933,7 +943,14 @@ function TaskGantt() {
       <Modal
         title="更新任务进度"
         open={progressModalVisible}
-        onOk={() => progressForm.submit()}
+        onOk={() => {
+          progressForm.validateFields()
+            .then(values => handleSubmitProgress(values))
+            .catch(errorInfo => {
+              console.log('表单验证失败:', errorInfo);
+              message.error('请填写必填字段');
+            });
+        }}
         onCancel={() => setProgressModalVisible(false)}
         width={400}
         destroyOnClose
@@ -971,7 +988,14 @@ function TaskGantt() {
       <Modal
         title="设置任务依赖"
         open={dependencyModalVisible}
-        onOk={() => dependencyForm.submit()}
+        onOk={() => {
+          dependencyForm.validateFields()
+            .then(values => handleSubmitDependencies(values))
+            .catch(errorInfo => {
+              console.log('表单验证失败:', errorInfo);
+              message.error('请填写必填字段');
+            });
+        }}
         onCancel={() => setDependencyModalVisible(false)}
         width={600}
         destroyOnClose

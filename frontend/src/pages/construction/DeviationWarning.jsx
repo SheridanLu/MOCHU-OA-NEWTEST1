@@ -817,7 +817,17 @@ function DeviationWarning() {
           handleForm.resetFields();
           setCurrentWarning(null);
         }}
-        onOk={() => handleForm.submit()}
+        onOk={() => {
+          handleForm.validateFields()
+            .then(values => {
+              // 直接调用handleSubmit，因为它已经定义了
+              handleSubmit(values);
+            })
+            .catch(errorInfo => {
+              console.log('表单验证失败:', errorInfo);
+              message.error('请填写必填字段');
+            });
+        }}
         confirmLoading={handleLoading}
         okText="确认处理"
         cancelText="取消"

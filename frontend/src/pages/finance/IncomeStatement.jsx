@@ -824,7 +824,14 @@ function IncomeStatement() {
           setGenerateVisible(false);
           generateForm.resetFields();
         }}
-        onOk={() => generateForm.submit()}
+        onOk={() => {
+          generateForm.validateFields()
+            .then(values => handleGenerate(values))
+            .catch(errorInfo => {
+              console.log('表单验证失败:', errorInfo);
+              message.error('请填写必填字段');
+            });
+        }}
         okText="生成"
         cancelText="取消"
       >

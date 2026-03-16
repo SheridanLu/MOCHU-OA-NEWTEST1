@@ -221,6 +221,7 @@ router.post('/', authMiddleware, checkPermission('project:create'), (req, res) =
     end_date,
     description
   } = req.body;
+  const userId = req.user?.userId || req.user?.id;
   
   // 验证必填字段
   if (!name) {
@@ -240,18 +241,41 @@ router.post('/', authMiddleware, checkPermission('project:create'), (req, res) =
     const result = db.prepare(`
       INSERT INTO projects (
         project_no, name, type, customer, contract_amount,
-        manager_id, start_date, end_date, status, project_type
-      ) VALUES (?, ?, 'entity', ?, ?, ?, ?, ?, 'pending', ?)
+        manager_id, start_date, end_date, status, project_type, approval_status
+      ) VALUES (?, ?, 'entity', ?, ?, ?, ?, ?, 'pending', ?, 'pending_approval')
     `).run(
       projectNo, name, customer, contract_amount || 0,
       manager_id, start_date, end_date, project_type || '智能化项目'
     );
     
-    const newProject = db.prepare('SELECT * FROM projects WHERE id = ?').get(result.lastInsertRowid);
+    const projectId = result.lastInsertRowid;
+    
+    // 创建审批记录
+    const approvalResult = db.prepare(`
+      INSERT INTO approvals (project_id, type, status, submitter_id, current_step, total_steps, comment)
+      VALUES (?, 'project_create', 'pending', ?, 1, 2, ?)
+    `).run(projectId, userId, '项目立项申请');
+    
+    const approvalId = approvalResult.lastInsertRowid;
+    
+    // 创建审批流程节点（财务→总经理）
+    // 步骤1：财务审批
+    db.prepare(`
+      INSERT INTO approval_flows (approval_id, step, role, status)
+      VALUES (?, 1, 'FINANCE', 'pending')
+    `).run(approvalId);
+    
+    // 步骤2：总经理审批
+    db.prepare(`
+      INSERT INTO approval_flows (approval_id, step, role, status)
+      VALUES (?, 2, 'GM', 'pending')
+    `).run(approvalId);
+    
+    const newProject = db.prepare('SELECT * FROM projects WHERE id = ?').get(projectId);
     
     res.json({
       success: true,
-      message: '项目创建成功',
+      message: '项目立项申请已提交，等待审批',
       data: newProject
     });
   } catch (error) {

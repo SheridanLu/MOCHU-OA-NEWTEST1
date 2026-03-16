@@ -119,6 +119,7 @@ function LaborVisaList() {
   };
 
   const handleSubmitApprove = async (values) => {
+    console.log('handleSubmitApprove called with values:', values);
     try {
       const response = await fetch(`${API_BASE}/labor-visas/${currentVisa.id}/approve`, {
         method: 'POST',
@@ -126,6 +127,7 @@ function LaborVisaList() {
         body: JSON.stringify(values)
       });
       const result = await response.json();
+      console.log('审批响应:', result);
       if (result.success) {
         message.success(result.message);
         setApproveVisible(false);
@@ -134,6 +136,7 @@ function LaborVisaList() {
         message.error(result.message || '审批失败');
       }
     } catch (error) {
+      console.error('审批失败:', error);
       message.error('审批失败');
     }
   };
@@ -258,7 +261,14 @@ function LaborVisaList() {
       <Modal
         title="新建劳务签证申请"
         open={modalVisible}
-        onOk={() => form.submit()}
+        onOk={() => {
+          form.validateFields()
+            .then(values => handleSubmit(values))
+            .catch(errorInfo => {
+              console.log('表单验证失败:', errorInfo);
+              message.error('请填写必填字段');
+            });
+        }}
         onCancel={() => setModalVisible(false)}
         width={700}
         destroyOnClose
@@ -389,7 +399,16 @@ function LaborVisaList() {
       <Modal
         title="审批劳务签证"
         open={approveVisible}
-        onOk={() => approveForm.submit()}
+        onOk={() => {
+          approveForm.validateFields()
+            .then(values => {
+              handleSubmitApprove(values);
+            })
+            .catch(errorInfo => {
+              console.log('表单验证失败:', errorInfo);
+              message.error('请选择审批意见');
+            });
+        }}
         onCancel={() => setApproveVisible(false)}
         width={500}
         destroyOnClose

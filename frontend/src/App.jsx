@@ -85,7 +85,7 @@ const getFilteredMenuConfig = () => {
     try {
       const user = JSON.parse(userStr);
       // 只有账号为 administrator 的用户才能看到角色管理和权限分配
-      isAdmin = user.account === 'administrator';
+      isAdmin = user.username === 'administrator' || user.account === 'administrator';
     } catch (e) {
       console.error('解析用户信息失败', e);
     }

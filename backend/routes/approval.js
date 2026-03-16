@@ -33,6 +33,7 @@ const {
   getSporadicPurchasePendingApprovals,
   getSiteVisaPendingApprovals,
   getOverageApprovalPendingApprovals,
+  getVirtualConvertPendingApprovals,
   canUserApprove,
   ApprovalStatus
 } = require('../models/approval');
@@ -130,6 +131,7 @@ router.get('/pending', (req, res) => {
     let sporadicPurchaseResult = { list: [], total: 0 };
     let siteVisaResult = { list: [], total: 0 };
     let overageApprovalResult = { list: [], total: 0 };
+    let virtualConvertResult = { list: [], total: 0 };
     
     try { projectResult = getPendingApprovals(approvalRoles, { page, pageSize }); } catch (e) { console.error('项目审批查询失败:', e.message); }
     try { sporadicResult = getSporadicPendingApprovals(approvalRoles, { page, pageSize }); } catch (e) { console.error('零星采购审批查询失败:', e.message); }
@@ -150,6 +152,7 @@ router.get('/pending', (req, res) => {
     try { sporadicPurchaseResult = getSporadicPurchasePendingApprovals(approvalRoles, { page, pageSize }); } catch (e) { console.error('零星采购审批查询失败:', e.message); }
     try { siteVisaResult = getSiteVisaPendingApprovals(approvalRoles, { page, pageSize }); } catch (e) { console.error('现场签证审批查询失败:', e.message); }
     try { overageApprovalResult = getOverageApprovalPendingApprovals(approvalRoles, { page, pageSize }); } catch (e) { console.error('超量审批查询失败:', e.message); }
+    try { virtualConvertResult = getVirtualConvertPendingApprovals(approvalRoles, { page, pageSize }); } catch (e) { console.error('虚拟项目转实体审批查询失败:', e.message); }
     
     // 合并结果
     // 处理项目审批列表，根据type字段区分不同审批类型
@@ -182,7 +185,8 @@ router.get('/pending', (req, res) => {
       ...stockInResult.list.map(item => ({ ...item, approval_source: 'stock_in', source_name: '入库单' })),
       ...sporadicPurchaseResult.list.map(item => ({ ...item, approval_source: 'sporadic_purchase', source_name: '零星采购' })),
       ...siteVisaResult.list.map(item => ({ ...item, approval_source: 'site_visa', source_name: '现场签证' })),
-      ...overageApprovalResult.list.map(item => ({ ...item, approval_source: 'overage_approval', source_name: '超量审批' }))
+      ...overageApprovalResult.list.map(item => ({ ...item, approval_source: 'overage_approval', source_name: '超量审批' })),
+      ...virtualConvertResult.list.map(item => ({ ...item, approval_source: 'virtual_convert', source_name: '虚拟项目转实体' }))
     ];
     
     // 按创建时间排序
@@ -195,7 +199,7 @@ router.get('/pending', (req, res) => {
                   ownerChangeResult.total + stockOutResult.total + laborSettlementResult.total +
                   overageResult.total + laborVisaResult.total + expenseContractResult.total +
                   stockInResult.total + sporadicPurchaseResult.total + siteVisaResult.total +
-                  overageApprovalResult.total;
+                  overageApprovalResult.total + virtualConvertResult.total;
     const startIndex = (parseInt(page) - 1) * parseInt(pageSize);
     const paginatedList = allList.slice(startIndex, startIndex + parseInt(pageSize));
 
@@ -226,6 +230,7 @@ router.get('/pending', (req, res) => {
           sporadic_purchase: sporadicPurchaseResult.total,
           site_visa: siteVisaResult.total,
           overage_approval: overageApprovalResult.total,
+          virtual_convert: virtualConvertResult.total,
         }
       }
     });

@@ -1283,3 +1283,28 @@ module.exports.getStockInPendingApprovals = getStockInPendingApprovals;
 module.exports.getSporadicPurchasePendingApprovals = getSporadicPurchasePendingApprovals;
 module.exports.getSiteVisaPendingApprovals = getSiteVisaPendingApprovals;
 module.exports.getOverageApprovalPendingApprovals = getOverageApprovalPendingApprovals;
+
+/**
+ * 获取虚拟项目转实体待审批列表
+ */
+function getVirtualConvertPendingApprovals(roleCodes, { page = 1, pageSize = 10 } = {}) {
+  const approvalRoles = ['FINANCE', 'GM'];
+  const hasPermission = roleCodes.some(r => approvalRoles.includes(r));
+  if (!hasPermission) return { list: [], total: 0 };
+
+  const sql = `
+    SELECT a.*, p.project_no, p.name as project_name,
+           u.real_name as submitter_name,
+           a.created_at as created_at,
+           'virtual_convert' as approval_type, '虚拟项目转实体' as type_name
+    FROM approvals a
+    LEFT JOIN projects p ON a.project_id = p.id
+    LEFT JOIN users u ON a.submitter_id = u.id
+    WHERE a.type = 'virtual_convert' AND a.status = 'pending'
+    ORDER BY a.created_at DESC
+  `;
+  const list = db.prepare(sql).all();
+  return { list, total: list.length };
+}
+
+module.exports.getVirtualConvertPendingApprovals = getVirtualConvertPendingApprovals;
