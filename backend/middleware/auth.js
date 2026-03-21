@@ -1,24 +1,65 @@
 /**
  * JWT 认证中间件
  * 提供 Token 生成、验证和刷新功能
+ * 
+ * 支持滑动过期：每次请求自动延长token有效期
  */
 
 const jwt = require('jsonwebtoken');
 
 // 从环境变量获取 JWT 密钥
 const JWT_SECRET = process.env.JWT_SECRET || 'your-super-secret-jwt-key';
-// Token 有效期（2小时）
-const TOKEN_EXPIRES_IN = '2h';
+// Access Token 有效期（2小时，短期）
+const ACCESS_TOKEN_EXPIRES = '2h';
+// Refresh Token 有效期（30天，长期）
+const REFRESH_TOKEN_EXPIRES = '30d';
+// Token 有效期（兼容旧代码）
+const TOKEN_EXPIRES_IN = '30d';
 
 /**
- * 生成 JWT Token
+ * 生成 Access Token（短期）
+ * @param {Object} payload - 用户信息 { userId, username, role }
+ * @returns {string} JWT Token
+ */
+function generateAccessToken(payload) {
+  return jwt.sign(
+    {
+      userId: payload.userId,
+      username: payload.username,
+      role: payload.role,
+      type: 'access'
+    },
+    JWT_SECRET,
+    { expiresIn: ACCESS_TOKEN_EXPIRES }
+  );
+}
+
+/**
+ * 生成 Refresh Token（长期）
+ * @param {Object} payload - 用户信息 { userId, username }
+ * @returns {string} JWT Token
+ */
+function generateRefreshToken(payload) {
+  return jwt.sign(
+    {
+      userId: payload.userId,
+      username: payload.username,
+      type: 'refresh'
+    },
+    JWT_SECRET,
+    { expiresIn: REFRESH_TOKEN_EXPIRES }
+  );
+}
+
+/**
+ * 生成 JWT Token（兼容旧代码）
  * @param {Object} payload - 用户信息 { userId, username, role }
  * @returns {string} JWT Token
  */
 function generateToken(payload) {
   return jwt.sign(
     {
-      userId: payload.userId,
+      userId: payload.userId || payload.id,
       username: payload.username,
       role: payload.role
     },
@@ -43,6 +84,8 @@ function verifyToken(token) {
 /**
  * JWT 认证中间件
  * 从 Authorization header 获取 token，验证并挂载用户信息到 req.user
+ * 
+ * 支持滑动过期：每次请求自动延长token有效期
  */
 function authMiddleware(req, res, next) {
   // 从 header 获取 Authorization
@@ -83,6 +126,31 @@ function authMiddleware(req, res, next) {
     username: decoded.username,
     role: decoded.role
   };
+
+  // 滑动过期：如果token即将过期（剩余时间<1小时），自动刷新
+  try {
+    const decodedExp = jwt.decode(token);
+    if (decodedExp && decodedExp.exp) {
+      const expiresAt = decodedExp.exp * 1000; // 转换为毫秒
+      const now = Date.now();
+      const remainingTime = expiresAt - now;
+      const oneHour = 60 * 60 * 1000;
+      
+      // 如果剩余时间小于1小时，自动刷新token
+      if (remainingTime < oneHour && remainingTime > 0) {
+        const newToken = generateToken({
+          userId: req.user.userId,
+          username: req.user.username,
+          role: req.user.role
+        });
+        // 在响应头中返回新token
+        res.setHeader('X-New-Token', newToken);
+      }
+    }
+  } catch (e) {
+    // 刷新失败不影响正常请求
+    console.error('自动刷新token失败:', e.message);
+  }
 
   next();
 }
@@ -147,9 +215,14 @@ function checkRole(...allowedRoles) {
 
 module.exports = {
   generateToken,
+  generateAccessToken,
+  generateRefreshToken,
   verifyToken,
   authMiddleware,
   optionalAuthMiddleware,
   checkRole,
+  JWT_SECRET,
+  ACCESS_TOKEN_EXPIRES,
+  REFRESH_TOKEN_EXPIRES,
   TOKEN_EXPIRES_IN
 };

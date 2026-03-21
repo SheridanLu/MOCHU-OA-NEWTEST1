@@ -294,8 +294,15 @@ function PurchaseListDetail() {
       ),
       dataIndex: 'material_name',
       key: 'material_name',
-      width: 160,
-      ellipsis: true
+      width: 180,
+      ellipsis: true,
+      render: (text, record) => (
+        <Tooltip title={text}>
+          <span style={{ fontWeight: record.category === 'equipment' ? 'bold' : 'normal' }}>
+            {text}
+          </span>
+        </Tooltip>
+      )
     },
     {
       title: '规格型号',
@@ -305,9 +312,9 @@ function PurchaseListDetail() {
       ellipsis: true,
       render: (text, record) => {
         if (record.category === 'equipment') {
-          return <span style={{color: '#999'}}>-</span>;
+          return <span style={{color: '#999', fontStyle: 'italic'}}>-</span>;
         }
-        return text || '-';
+        return <Tooltip title={text}><span>{text || '-'}</span></Tooltip>;
       }
     },
     {
@@ -554,41 +561,49 @@ function PurchaseListDetail() {
             initialValue="material"
             rules={[{ required: true, message: '请选择分类' }]}
           >
-            <Select placeholder="请选择分类">
+            <Select placeholder="请选择分类" onChange={(value) => {
+              // 切换分类时清空规格型号
+              if (value === 'equipment') {
+                form.setFieldsValue({ specification: '' });
+              }
+            }}>
               <Option value="equipment">设备类</Option>
               <Option value="material">材料类</Option>
             </Select>
           </Form.Item>
           
-          <Row gutter={16}>
-            <Col span={12}>
-              <Form.Item
-                name="material_name"
-                label="名称"
-                rules={[{ required: true, message: '请输入名称' }]}
-              >
-                <Input placeholder="请输入名称" />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item
-                name="specification"
-                label="规格型号"
-                rules={[
-                  { required: form.getFieldValue('category') === 'material', message: '材料类必须填写规格型号' }
-                ]}
-              >
-                <Input placeholder="请输入规格型号" />
-              </Form.Item>
-            </Col>
-          </Row>
+          <Form.Item
+            name="material_name"
+            label={form.getFieldValue('category') === 'equipment' ? '设备名称' : '材料名称'}
+            rules={[{ required: true, message: '请输入名称' }]}
+          >
+            <Input placeholder={form.getFieldValue('category') === 'equipment' ? '请输入设备名称' : '请输入材料名称'} />
+          </Form.Item>
+          
+          <Form.Item
+            noStyle
+            shouldUpdate={(prevValues, currentValues) => prevValues.category !== currentValues.category}
+          >
+            {({ getFieldValue }) => {
+              const category = getFieldValue('category');
+              return category === 'material' ? (
+                <Form.Item
+                  name="specification"
+                  label="规格型号"
+                  rules={[{ required: true, message: '材料类必须填写规格型号' }]}
+                >
+                  <Input placeholder="请输入规格型号" />
+                </Form.Item>
+              ) : null;
+            }}
+          </Form.Item>
           
           <Row gutter={16}>
-            <Col span={8}>
+            <Col span={12}>
               <Form.Item
                 name="unit"
                 label="单位"
-                rules={[{ required: true, message: '请输入单位' }]}
+                rules={[{ required: true, message: '请选择单位' }]}
               >
                 <Select placeholder="请选择单位" allowClear>
                   <Option value="套">套</Option>
@@ -603,7 +618,7 @@ function PurchaseListDetail() {
                 </Select>
               </Form.Item>
             </Col>
-            <Col span={8}>
+            <Col span={12}>
               <Form.Item
                 name="quantity"
                 label="数量"

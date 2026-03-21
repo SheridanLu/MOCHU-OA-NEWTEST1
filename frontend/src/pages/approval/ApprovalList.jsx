@@ -931,33 +931,52 @@ function ApprovalList() {
         {currentApproval && (
           <>
             <Descriptions bordered column={2} size="small">
-              <Descriptions.Item label="项目编号">
-                <Tag color="blue">{currentApproval.project_no}</Tag>
+              <Descriptions.Item label="审批类型">
+                <Tag color="purple">{currentApproval.approval_type_name || currentApproval.type_name || '项目审批'}</Tag>
               </Descriptions.Item>
-              <Descriptions.Item label="项目名称">
-                {currentApproval.project_name}
+              <Descriptions.Item label="编号">
+                <Tag color="blue">{currentApproval.project_no || currentApproval.contract_no || currentApproval.list_no || '-'}</Tag>
               </Descriptions.Item>
-              <Descriptions.Item label="客户">
-                {currentApproval.customer || '-'}
+              <Descriptions.Item label="名称" span={2}>
+                {currentApproval.project_name || currentApproval.contract_name || currentApproval.title || '-'}
               </Descriptions.Item>
-              <Descriptions.Item label="合同金额">
-                ¥{(currentApproval.contract_amount || 0).toLocaleString()}
+              <Descriptions.Item label="项目">
+                {currentApproval.project_name || '-'}
               </Descriptions.Item>
-              <Descriptions.Item label="项目负责人">
-                {currentApproval.project_manager_name || '-'}
+              <Descriptions.Item label="金额">
+                ¥{((currentApproval.contract_amount || currentApproval.amount || currentApproval.total_amount || 0)).toLocaleString()}
+              </Descriptions.Item>
+              <Descriptions.Item label="客户/供应商">
+                {currentApproval.customer || currentApproval.supplier_name || '-'}
+              </Descriptions.Item>
+              <Descriptions.Item label="负责人">
+                {currentApproval.project_manager_name || currentApproval.manager_name || '-'}
               </Descriptions.Item>
               <Descriptions.Item label="提交人">
-                {currentApproval.submitter_name}
+                {currentApproval.submitter_name || currentApproval.creator_name || '-'}
               </Descriptions.Item>
               <Descriptions.Item label="提交时间">
                 {currentApproval.created_at ? 
                   formatDateTime(currentApproval.created_at) : '-'}
               </Descriptions.Item>
               <Descriptions.Item label="当前状态">
-                <Tag color={APPROVAL_STATUS_MAP[currentApproval.status]?.color}>
-                  {APPROVAL_STATUS_MAP[currentApproval.status]?.text}
+                <Tag color={APPROVAL_STATUS_MAP[currentApproval.status]?.color || 'default'}>
+                  {APPROVAL_STATUS_MAP[currentApproval.status]?.text || currentApproval.status || '待审批'}
                 </Tag>
               </Descriptions.Item>
+              <Descriptions.Item label="当前审批人">
+                {currentApproval.current_approver_name || '-'}
+              </Descriptions.Item>
+              {currentApproval.description && (
+                <Descriptions.Item label="描述" span={2}>
+                  {currentApproval.description}
+                </Descriptions.Item>
+              )}
+              {currentApproval.remark && (
+                <Descriptions.Item label="备注" span={2}>
+                  {currentApproval.remark}
+                </Descriptions.Item>
+              )}
             </Descriptions>
 
             {/* 审批流程进度 */}
@@ -990,7 +1009,7 @@ function ApprovalList() {
         cancelText="取消"
         width={500}
       >
-        <p>确定通过项目 <strong>{currentApproval?.project_name}</strong> 的审批？</p>
+        <p>确定通过 <strong>{currentApproval?.project_name || currentApproval?.contract_name || currentApproval?.title || '该审批'}</strong> 的审批？</p>
         <div style={{ marginTop: 16 }}>
           <div style={{ marginBottom: 8 }}>审批意见（可选）：</div>
           <Input.TextArea
@@ -1014,7 +1033,7 @@ function ApprovalList() {
         okButtonProps={{ danger: true }}
         width={500}
       >
-        <p>确定拒绝项目 <strong>{currentApproval?.project_name}</strong> 的审批？</p>
+        <p>确定拒绝 <strong>{currentApproval?.project_name || currentApproval?.contract_name || currentApproval?.title || '该审批'}</strong> 的审批？</p>
         <div style={{ marginTop: 16 }}>
           <div style={{ marginBottom: 8, color: '#ff4d4f' }}>拒绝原因（必填）：</div>
           <Input.TextArea

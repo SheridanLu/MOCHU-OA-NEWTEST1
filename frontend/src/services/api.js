@@ -23,9 +23,15 @@ api.interceptors.request.use(
   }
 );
 
-// 响应拦截器 - 处理错误
+// 响应拦截器 - 处理滑动过期和错误
 api.interceptors.response.use(
   (response) => {
+    // 检查是否有新token（滑动过期自动刷新）
+    const newToken = response.headers['x-new-token'];
+    if (newToken) {
+      console.log('Token已自动刷新');
+      localStorage.setItem('token', newToken);
+    }
     return response;
   },
   (error) => {

@@ -272,6 +272,7 @@ function ExpenseContractCreate() {
 
   // 创建新供应商
   const handleAddSupplier = async (values) => {
+    console.log('开始创建供应商:', values);
     try {
       const response = await fetch(`${API_BASE}/contracts/suppliers`, {
         method: 'POST',
@@ -280,6 +281,7 @@ function ExpenseContractCreate() {
       });
 
       const result = await response.json();
+      console.log('供应商创建响应:', result);
       if (result.success) {
         message.success('供应商创建成功');
         setAddSupplierVisible(false);
@@ -292,7 +294,7 @@ function ExpenseContractCreate() {
       }
     } catch (error) {
       console.error('创建供应商失败:', error);
-      message.error('创建供应商失败');
+      message.error('创建供应商失败: ' + error.message);
     }
   };
 
@@ -1068,7 +1070,16 @@ function ExpenseContractCreate() {
               }}>
                 取消
               </Button>
-              <Button type="primary" htmlType="submit">
+              <Button type="primary" onClick={() => {
+                supplierForm.validateFields()
+                  .then(values => {
+                    handleAddSupplier(values);
+                  })
+                  .catch(errorInfo => {
+                    console.log('验证失败:', errorInfo);
+                    message.error('请填写必填字段');
+                  });
+              }}>
                 创建
               </Button>
             </Space>

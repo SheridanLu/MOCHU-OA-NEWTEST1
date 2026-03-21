@@ -104,6 +104,32 @@ router.get('/', (req, res) => {
 });
 
 /**
+ * GET /api/contracts/suppliers
+ * 获取所有供应商列表（用于新建合同时选择）
+ */
+router.get('/suppliers', (req, res) => {
+  try {
+    const suppliers = db.prepare(`
+      SELECT id, name, contact_person, phone, email, address
+      FROM suppliers
+      WHERE status = 'active'
+      ORDER BY name
+    `).all();
+
+    res.json({
+      success: true,
+      data: suppliers
+    });
+  } catch (error) {
+    console.error('获取供应商列表失败:', error);
+    res.status(500).json({
+      success: false,
+      message: '获取供应商列表失败: ' + error.message
+    });
+  }
+});
+
+/**
  * GET /api/contracts/:id
  * 获取单个合同详情
  */
@@ -131,6 +157,52 @@ router.get('/:id', (req, res) => {
     success: true,
     data: contract
   });
+});
+
+/**
+ * POST /api/contracts/suppliers
+ * 创建新供应商
+ */
+router.post('/suppliers', checkPermission('supplier:create'), (req, res) => {
+  const {
+    name,
+    contact_person,
+    phone,
+    email,
+    address,
+    bank_name,
+    bank_account,
+    contact_region,
+    tax_no
+  } = req.body;
+
+  if (!name || !name.trim()) {
+    return res.status(400).json({
+      success: false,
+      message: '供应商名称不能为空'
+    });
+  }
+
+  try {
+    const result = db.prepare(`
+      INSERT INTO suppliers (name, contact_person, phone, email, address, bank_name, bank_account, contact_region, tax_no)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(name.trim(), contact_person, phone, email, address, bank_name, bank_account, contact_region, tax_no || null);
+
+    const newSupplier = db.prepare('SELECT * FROM suppliers WHERE id = ?').get(result.lastInsertRowid);
+
+    res.json({
+      success: true,
+      message: '供应商创建成功',
+      data: newSupplier
+    });
+  } catch (error) {
+    console.error('创建供应商失败:', error);
+    res.status(500).json({
+      success: false,
+      message: '创建供应商失败: ' + error.message
+    });
+  }
 });
 
 /**
@@ -1101,32 +1173,6 @@ router.put('/price-warnings/:id/handle', (req, res) => {
 });
 
 /**
- * GET /api/contracts/suppliers
- * 获取所有供应商列表（用于新建合同时选择）
- */
-router.get('/suppliers', (req, res) => {
-  try {
-    const suppliers = db.prepare(`
-      SELECT id, name, contact_person, phone, email, address
-      FROM suppliers
-      WHERE status = 'active'
-      ORDER BY name
-    `).all();
-
-    res.json({
-      success: true,
-      data: suppliers
-    });
-  } catch (error) {
-    console.error('获取供应商列表失败:', error);
-    res.status(500).json({
-      success: false,
-      message: '获取供应商列表失败: ' + error.message
-    });
-  }
-});
-
-/**
  * GET /api/contracts/:id/suppliers
  * 获取合同供应商列表（用于下拉选择）
  */
@@ -1166,52 +1212,6 @@ router.get('/:id/suppliers', (req, res) => {
     res.status(500).json({
       success: false,
       message: '获取供应商列表失败: ' + error.message
-    });
-  }
-});
-
-/**
- * POST /api/contracts/suppliers
- * 创建新供应商
- */
-router.post('/suppliers', checkPermission('supplier:create'), (req, res) => {
-  const {
-    name,
-    contact_person,
-    phone,
-    email,
-    address,
-    bank_name,
-    bank_account,
-    contact_region,
-    tax_no
-  } = req.body;
-
-  if (!name || !name.trim()) {
-    return res.status(400).json({
-      success: false,
-      message: '供应商名称不能为空'
-    });
-  }
-
-  try {
-    const result = db.prepare(`
-      INSERT INTO suppliers (name, contact_person, phone, email, address, bank_name, bank_account, contact_region, tax_no)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(name.trim(), contact_person, phone, email, address, bank_name, bank_account, contact_region, tax_no || null);
-
-    const newSupplier = db.prepare('SELECT * FROM suppliers WHERE id = ?').get(result.lastInsertRowid);
-
-    res.json({
-      success: true,
-      message: '供应商创建成功',
-      data: newSupplier
-    });
-  } catch (error) {
-    console.error('创建供应商失败:', error);
-    res.status(500).json({
-      success: false,
-      message: '创建供应商失败: ' + error.message
     });
   }
 });
