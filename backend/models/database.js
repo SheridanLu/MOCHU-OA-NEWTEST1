@@ -2346,8 +2346,30 @@ function initDatabase() {
   db.exec(`
     CREATE INDEX IF NOT EXISTS idx_completion_documents_type ON completion_documents(doc_type)
   `);
+  `);
+
+  // ========== 问题传报需求： 附件上传通用表 ==========
   db.exec(`
-    CREATE INDEX IF NOT EXISTS idx_completion_documents_upload_date ON completion_documents(upload_date)
+    CREATE TABLE IF NOT EXISTS attachments (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      entity_type TEXT NOT NULL,              -- 关联实体类型: visa, owner_change, overage, contract, project, bid_notice
+      entity_id INTEGER NOT NULL,             -- 关联实体ID
+      file_name TEXT NOT NULL,                -- 原始文件名
+      file_path TEXT NOT NULL,                -- 存储路径
+      file_size INTEGER,                      -- 文件大小(字节)
+      file_type TEXT,                         -- 文件MIME类型
+      uploader_id INTEGER,                    -- 上传人ID
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (uploader_id) REFERENCES users(id)
+    )
+  `);
+
+  // 为附件表创建索引
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_attachments_entity ON attachments(entity_type, entity_id)
+  `);
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_attachments_uploader ON attachments(uploader_id)
   `);
 
   console.log('Database initialized successfully');

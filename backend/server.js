@@ -93,13 +93,16 @@ app.use('/api/payments', paymentRoutes);
 // Task 54: 施工管理 API（里程碑设置）
 app.use('/api/construction', constructionRoutes);
 app.use('/api/changes', changeRoutes);
-// Task 57 & 58: 竣工管理 API（劳务结算 + 竣工图纸）
+// Task 57 & 58: 竣工管理 API（劳务结算 + 竣工图纸)
 const overageApprovalRoutes = require('./routes/overageApproval');
 app.use('/api/overage-approvals', overageApprovalRoutes);
 app.use('/api/completion', completionRoutes);
 app.use('/api/labor-visas', laborVisaRoutes);
 app.use('/api/progress-alerts', progressAlertRoutes);
 app.use('/api/todos', todoRoutes);
+// 问题传报需求： 附件上传通用API
+const attachmentRoutes = require('./routes/attachments');
+app.use('/api/attachments', attachmentRoutes);
 // Task 60: 系统管理 - 审计日志 API
 app.use('/api/audit', auditRoutes);
 app.use('/api/announcements', announcementRoutes);
