@@ -1817,6 +1817,20 @@ function initDatabase() {
     CREATE INDEX IF NOT EXISTS idx_change_overage_approvals_role ON change_overage_approvals(role)
   `);
 
+
+  // ========== 问题传报需求：超量采购变更附件 ==========
+  const overageApprovalColumns = [
+    { name: 'attachment', type: 'TEXT' },
+    { name: 'attachment_name', type: 'TEXT' }
+  ];
+
+  overageApprovalColumns.forEach(col => {
+    try {
+      db.exec(`ALTER TABLE change_overage ADD COLUMN ${col.name} ${col.type}`);
+    } catch (e) {
+      // 字段已存在，忽略错误
+    }
+  });
   // ========== Task 52: 变更管理 - 现场签证 ==========
 
   // 现场签证主表 - change_visa
@@ -2020,6 +2034,20 @@ function initDatabase() {
   db.exec(`
     CREATE INDEX IF NOT EXISTS idx_change_owner_approvals_role ON change_owner_approvals(role)
   `);
+
+  // ========== 问题传报需求：甲方需求变更附件 ==========
+  const ownerChangeColumns = [
+    { name: 'attachment', type: 'TEXT' },           // 附件路径
+    { name: 'attachment_name', type: 'TEXT' }       // 附件文件名
+  ];
+
+  ownerChangeColumns.forEach(col => {
+    try {
+      db.exec(`ALTER TABLE change_owner ADD COLUMN ${col.name} ${col.type}`);
+    } catch (e) {
+      // 字段已存在，忽略错误
+    }
+  });
 
   // ========== Task 54: 施工管理 - 里程碑设置 ==========
 
