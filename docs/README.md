@@ -145,57 +145,64 @@ server {
 
 ## 🚧 待开发功能（问题传报需求）
 
-> 根据2026年3月13日问题传报文档，以下功能待开发实现
+> 根据2026年3月13日问题传报文档，经两次代码核实确认
 
-### P0 - 高优先级
+### 核实结果汇总
 
-| 功能 | 说明 | 状态 |
+| 类别 | 数量 | 说明 |
 |------|------|------|
-| 支出合同扩展字段 | 运输方式、接货人、交货差、交货期限、结算方式、验收负责人、质保期 | ❌ 待开发 |
-| 零星采购税点 | tax_type, tax_rate 字段（0%/1%/3%/6%/9%/13%） | ❌ 待开发 |
-| 现场签证关联合同 | contract_id 字段，关联支出合同 | ❌ 待开发 |
+| ✅ 已完全实现 | 21项 | 代码已存在，功能完整 |
+| ❌ 未实现 | 4项 | 需要开发 |
+| ⚠️ 部分实现 | 1项 | 附件上传（3/6模块） |
 
-### P1 - 中优先级
+### P0 - 高优先级（3项）
 
-| 功能 | 说明 | 状态 |
-|------|------|------|
-| 附件上传通用模块 | 统一附件管理表和API | ❌ 待开发 |
-| 现场签证附件 | attachment 字段，支持上传 | ❌ 待开发 |
-| 甲方需求变更附件 | attachment 字段，支持上传 | ❌ 待开发 |
-| 超量采购变更附件 | attachment 字段，支持上传 | ❌ 待开发 |
+| 功能 | 说明 | 状态 | 工作量 |
+|------|------|------|--------|
+| 支出合同扩展字段 | 7个字段：运输方式、接货人、交货差、交货期限、结算方式、验收负责人、质保期 | ❌ 待开发 | 中 |
+| 零星采购税点 | tax_type, tax_rate 字段（0%/1%/3%/6%/9%/13%） | ❌ 待开发 | 小 |
+| 现场签证关联合同 | contract_id, attachment 字段 | ❌ 待开发 | 小 |
 
-### P2 - 低优先级
+### P1 - 中优先级（4项）
 
-| 功能 | 说明 | 状态 |
-|------|------|------|
-| 合同模板管理 | 模板表、CRUD接口、变量替换 | ❌ 待开发 |
-| 根据模板生成合同 | 自动填充变量生成合同 | ❌ 待开发 |
+| 功能 | 说明 | 状态 | 工作量 |
+|------|------|------|--------|
+| 附件上传通用模块 | 统一attachments表和API | ❌ 待开发 | 中 |
+| 现场签证附件 | attachment 字段 | ❌ 待开发 | 小 |
+| 甲方需求变更附件 | attachment 字段 | ❌ 待开发 | 小 |
+| 超量采购变更附件 | attachment 字段 | ❌ 待开发 | 小 |
+
+### P2 - 低优先级（1项）
+
+| 功能 | 说明 | 状态 | 工作量 |
+|------|------|------|--------|
+| 合同模板管理 | contract_templates表、CRUD接口、变量替换 | ❌ 待开发 | 大 |
 
 ### 已实现功能（21项）✅
 
-| 序号 | 功能 | API |
-|------|------|-----|
-| 1 | 虚拟项目转实体项目 | `POST /api/projects/:id/convert` |
-| 2 | 虚拟项目中止功能 | `POST /api/projects/:id/abort-with-approval` |
-| 3 | 项目立项审批流程 | 采购员→财务→总经理 |
-| 4 | 审批详情查看 | `GET /api/approvals/project/:projectId` |
-| 5 | 供应商创建（含联系人区域） | `POST /api/contracts/suppliers` |
-| 6 | 采购清单分类（设备/材料） | category 字段 |
-| 7 | 材料基准价分类 | category + 规格验证 |
-| 8 | 超量审批功能 | `POST /api/overage-approvals` |
-| 9 | 零星采购功能 | `POST /api/sporadic-purchases` |
-| 10 | 物资领用功能 | `POST /api/stock/requisitions` |
-| 11 | 入库单合计功能 | total_quantity, total_amount |
-| 12 | 物资入库审批 | 入库确认 + 库存更新 |
-| 13 | 现场签证管理 | `POST /api/changes/visa` |
-| 14 | 甲方需求变更 | `POST /api/changes/owner-changes` |
-| 15 | 劳务签证 | `POST /api/labor-visas` |
-| 16 | 偏差预警功能 | `GET /api/progress-alerts` |
-| 17 | 里程碑甘特图 | `GET /api/construction/tasks/gantt/:projectId` |
-| 18 | 收入合同拆分 | `POST /api/income-statements/generate` |
-| 19 | 库存查询高级功能 | `GET /api/stock/query/statistics` |
-| 20 | 权限控制（RBAC） | checkPermission 中间件 |
-| 21 | 竣工管理 | `/api/completion/*` |
+| 序号 | 功能 | API | 代码位置 |
+|------|------|-----|----------|
+| 1 | 虚拟项目转实体项目（含审批+附件） | `POST /api/projects/:id/convert-with-approval` | project.js:899 |
+| 2 | 虚拟项目中止（含成本归集） | `POST /api/projects/:id/abort-with-approval` | project.js:1020 |
+| 3 | 项目立项审批流程 | 采购员→财务→总经理 | project.js:244 |
+| 4 | 审批详情查看 | `GET /api/approvals/project/:projectId` | approval.js:476 |
+| 5 | 供应商创建（含联系人区域+税号） | `POST /api/contracts/suppliers` | contract.js:163 |
+| 6 | 采购清单分类（设备/材料） | category 字段 | purchase.js:371 |
+| 7 | 材料基准价分类（含税率） | category + tax_rate | material.js:124 |
+| 8 | 超量审批功能 | `POST /api/overage-approvals` | overageApproval.js |
+| 9 | 零星采购功能（含审批） | `POST /api/sporadic-purchases` | sporadicPurchase.js |
+| 10 | 物资领用功能 | `POST /api/stock/requisitions` | stock.js:912 |
+| 11 | 入库单合计功能 | total_quantity, total_amount | stock.js:186 |
+| 12 | 物资入库审批 | 入库确认 + 库存更新 | stock.js:432 |
+| 13 | 现场签证管理 | `POST /api/changes/visa` | change.js:579 |
+| 14 | 甲方需求变更 | `POST /api/changes/owner-changes` | change.js:1137 |
+| 15 | 劳务签证 | `POST /api/labor-visas` | laborVisa.js |
+| 16 | 偏差预警功能（含报告生成） | `GET /api/progress-alerts/report/:projectId` | progressAlert.js:57 |
+| 17 | 里程碑甘特图（含任务依赖+负责人） | `GET /api/construction/tasks/gantt/:projectId` | construction.js:1618 |
+| 18 | 收入合同拆分（含进度产值） | `PUT /api/income-statements/:id/progress` | incomeStatement.js:320 |
+| 19 | 库存查询高级功能（预警/紧急/超储） | `GET /api/stock/query/statistics` | stock.js:3186 |
+| 20 | 权限控制（RBAC） | checkPermission 中间件 | permission.js |
+| 21 | 竣工管理（图纸/文档/劳务结算） | `/api/completion/*` | completion.js |
 
 ---
 
