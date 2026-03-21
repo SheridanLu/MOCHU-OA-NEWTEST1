@@ -286,7 +286,10 @@ router.post('/', checkPermission('material:create'), (req, res) => {
     total_amount,
     remarks,
     is_excessive,
-    is_legal_review
+    is_legal_review,
+    // 问题传报需求：税点字段
+    tax_type,          // 税票类型: none(无), general(普票), special(专票)
+    tax_rate           // 税率: 0, 1, 3, 6, 9, 13
   } = req.body;
   
   if (!name || !name.trim()) {
@@ -333,29 +336,38 @@ router.post('/', checkPermission('material:create'), (req, res) => {
       } else if (priceWarningCount > 0) {
         warningLevel = maxWarningLevel;
       }
-      
+
+      // 计算税额和含税金额
+      const taxRateValue = parseFloat(tax_rate) || 0;
+      const taxTypeValue = tax_type || 'none';
+      const subtotalAmount = total_amount || 0;
+      const taxAmountValue = Math.round(subtotalAmount * taxRateValue / 100 * 100) / 100;
+      const amountWithTax = Math.round((subtotalAmount + taxAmountValue) * 100) / 100;
+
       // 插入主表
       const result = db.prepare(`
         INSERT INTO zero_purchases (
-          purchase_no, name, supplier_id, total_amount, 
-          status, warning_level, price_warning_count, 
+          purchase_no, name, supplier_id, total_amount,
+          tax_type, tax_rate, tax_amount, amount_with_tax,
+          status, warning_level, price_warning_count,
           is_excessive, is_legal_review, remarks, creator_id
-        ) VALUES (?, ?, ?, ?, 'draft', ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'draft', ?, ?, ?, ?, ?, ?)
       `).run(
-        purchaseNo, name.trim(), supplier_id || null, total_amount || 0,
+        purchaseNo, name.trim(), supplier_id || null, subtotalAmount,
+        taxTypeValue, taxRateValue, taxAmountValue, amountWithTax,
         warningLevel, priceWarningCount,
         is_excessive ? 1 : 0, is_legal_review ? 1 : 0, remarks || null, userId
       );
-      
+
       const purchaseId = result.lastInsertRowid;
-      
+
       // 插入明细
       const insertItem = db.prepare(`
         INSERT INTO zero_purchase_items (
-          purchase_id, material_name, specification, unit, 
-          quantity, unit_price, base_price, total_price,
+          purchase_id, material_name, specification, unit,
+          quantity, unit_price, tax_rate, tax_amount, amount_with_tax, base_price, total_price,
           has_warning, warning_level, remarks
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `);
       
       items.forEach(item => {

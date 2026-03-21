@@ -741,7 +741,17 @@ router.get('/visa/:id', (req, res) => {
  * 创建现场签证
  */
 router.post('/visa', checkPermission('change:create'), (req, res) => {
-  const { project_id, visa_content, reason, amount, remark } = req.body;
+  const {
+    project_id,
+    visa_content,
+    reason,
+    amount,
+    remark,
+    // 问题传报需求：关联合同和附件
+    contract_id,      // 关联支出合同ID
+    attachment,       // 附件路径
+    attachment_name   // 附件文件名
+  } = req.body;
   const userId = req.user?.id;
 
   // 验证必填字段
@@ -775,6 +785,17 @@ router.post('/visa', checkPermission('change:create'), (req, res) => {
     });
   }
 
+  // 验证关联合同是否存在（如果提供）
+  if (contract_id) {
+    const contract = db.prepare('SELECT id, contract_no, name FROM contracts WHERE id = ? AND type = ?').get(contract_id, 'expense');
+    if (!contract) {
+      return res.status(400).json({
+        success: false,
+        message: '关联的支出合同不存在'
+      });
+    }
+  }
+
   try {
     const result = db.transaction(() => {
       const visaNo = generateVisaNo();
@@ -783,10 +804,12 @@ router.post('/visa', checkPermission('change:create'), (req, res) => {
       const insertResult = db.prepare(`
         INSERT INTO change_visa (
           visa_no, project_id, visa_content, reason, amount,
+          contract_id, attachment, attachment_name,
           status, remark, creator_id
-        ) VALUES (?, ?, ?, ?, ?, 'pending', ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?)
       `).run(
         visaNo, project_id, visa_content.trim(), reason.trim(), amount || 0,
+        contract_id || null, attachment || null, attachment_name || null,
         remark || null, userId
       );
 
