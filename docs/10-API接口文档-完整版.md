@@ -698,8 +698,49 @@ Content-Type: application/json
 | supplier_id | number | 否 | 供应商ID |
 | party_a | string | 是 | 甲方名称（本公司） |
 | party_b | string | 是 | 乙方名称（供应商） |
-| contract_category | string | 是 | equipment(设备), material(材料), labor(劳务) |
+| contract_category | string | 是 | equipment(设备), material(材料), labor(劳务), construction(施工) |
 | total_amount | number | 是 | 合同总金额 |
+
+### 支出合同扩展字段（问题传报要求）
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| transport_method | string | 否 | 运输方式：party_a(甲方负责)、party_b(乙方负责) |
+| receiver_name | string | 否 | 接货人姓名 |
+| delivery_tolerance | string | 否 | 交货正负差，如 "±5%"、"±10件" |
+| delivery_deadline | date | 否 | 交货期限，YYYY-MM-DD |
+| payment_method | string | 否 | 货款结算方式，如 "月结30天"、"货到付款" |
+| acceptor_name | string | 否 | 验收负责人姓名 |
+| warranty_period | string | 否 | 质保期，如 "12个月"、"2年" |
+
+### 完整请求体示例
+```json
+{
+  "project_id": 1,
+  "supplier_id": 1,
+  "party_a": "甲方（本公司）名称",
+  "party_b": "乙方（供应商）名称",
+  "contract_category": "equipment",
+  "total_amount": 500000,
+  "sign_date": "2026-01-01",
+  "transport_method": "party_b",
+  "receiver_name": "张三",
+  "delivery_tolerance": "±5%",
+  "delivery_deadline": "2026-03-31",
+  "payment_method": "月结30天",
+  "acceptor_name": "李四",
+  "warranty_period": "12个月",
+  "contract_items": [
+    {
+      "item_name": "某某设备",
+      "brand": "品牌",
+      "model": "型号",
+      "quantity": 1,
+      "unit_price": 500000
+    }
+  ]
+}
+```
 
 ### 响应
 ```json
@@ -1241,3 +1282,390 @@ Authorization: Bearer <token>
 | `role:delete` | 删除角色 |
 | `system:manage` | 系统管理 |
 | `data:export` | 导出数据 |
+
+---
+
+# 7. 待开发接口（问题传报需求）
+
+> 以下接口根据2026年3月13日问题传报需求设计，待开发实现
+
+## 7.1 合同模板管理
+
+### 7.1.1 获取合同模板列表
+
+```
+GET /api/contract-templates?type=expense&category=equipment
+Authorization: Bearer <token>
+```
+
+**查询参数:**
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| type | string | 否 | income(收入), expense(支出) |
+| category | string | 否 | equipment, material, labor, construction |
+| status | string | 否 | active, inactive |
+
+**响应:**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": 1,
+      "name": "设备采购合同模板",
+      "code": "EQUIPMENT_001",
+      "type": "expense",
+      "category": "equipment",
+      "is_default": true,
+      "created_at": "2026-03-21 10:00:00"
+    }
+  ]
+}
+```
+
+---
+
+### 7.1.2 创建合同模板
+
+```
+POST /api/contract-templates
+Authorization: Bearer <token>
+```
+
+**权限要求:** `template:create`
+
+**请求体:**
+```json
+{
+  "name": "设备采购合同模板",
+  "code": "EQUIPMENT_001",
+  "type": "expense",
+  "category": "equipment",
+  "content": "<html>合同模板内容...</html>",
+  "variables": ["party_a", "party_b", "amount", "sign_date"],
+  "is_default": true
+}
+```
+
+**参数说明:**
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| name | string | 是 | 模板名称 |
+| code | string | 是 | 模板代码，唯一 |
+| type | string | 是 | income(收入), expense(支出) |
+| category | string | 是 | equipment, material, labor, construction |
+| content | string | 是 | 模板内容（HTML格式） |
+| variables | array | 否 | 可变字段列表 |
+| is_default | boolean | 否 | 是否默认模板 |
+
+**响应:**
+```json
+{
+  "success": true,
+  "message": "合同模板创建成功",
+  "data": {
+    "id": 1,
+    "code": "EQUIPMENT_001"
+  }
+}
+```
+
+---
+
+### 7.1.3 根据模板生成合同
+
+```
+POST /api/contract-templates/:id/generate
+Authorization: Bearer <token>
+```
+
+**请求体:**
+```json
+{
+  "project_id": 1,
+  "supplier_id": 1,
+  "variables": {
+    "party_a": "某某公司",
+    "party_b": "供应商名称",
+    "amount": 500000,
+    "sign_date": "2026-03-21"
+  }
+}
+```
+
+**响应:**
+```json
+{
+  "success": true,
+  "message": "合同生成成功",
+  "data": {
+    "contract_id": 100,
+    "contract_no": "EXP-2026-100"
+  }
+}
+```
+
+---
+
+## 7.2 零星采购税点
+
+### 7.2.1 创建零星采购（含税点）
+
+```
+POST /api/sporadic-purchases
+Authorization: Bearer <token>
+```
+
+**请求体:**
+```json
+{
+  "name": "零星采购申请",
+  "project_id": 1,
+  "contract_id": 10,
+  "tax_type": "special",
+  "tax_rate": 13,
+  "items": [
+    {
+      "material_name": "螺丝",
+      "specification": "M8×20",
+      "unit": "个",
+      "quantity": 100,
+      "unit_price": 0.5,
+      "tax_rate": 13
+    }
+  ]
+}
+```
+
+**税点参数说明:**
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| tax_type | string | 否 | none(无), general(普票), special(专票) |
+| tax_rate | number | 否 | 税率：0, 1, 3, 6, 9, 13（百分比） |
+
+**响应:**
+```json
+{
+  "success": true,
+  "data": {
+    "id": 1,
+    "purchase_no": "ZL-2026-001",
+    "total_amount": 50.00,
+    "tax_amount": 6.50,
+    "amount_with_tax": 56.50
+  }
+}
+```
+
+**校验规则:**
+- 零星采购金额不超过收入合同金额的0.5%
+- 必须关联有效的收入合同
+
+---
+
+## 7.3 现场签证（扩展）
+
+### 7.3.1 创建现场签证（含关联合同和附件）
+
+```
+POST /api/changes/visa
+Authorization: Bearer <token>
+Content-Type: multipart/form-data
+```
+
+**请求体:**
+```
+project_id: 1
+contract_id: 10
+visa_content: 签证内容描述
+reason: 签证原因
+amount: 5000
+remark: 备注
+attachment: [文件]
+```
+
+**参数说明:**
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| project_id | number | 是 | 关联项目ID |
+| contract_id | number | 是 | 关联合同ID（支出合同） |
+| visa_content | string | 是 | 签证内容 |
+| reason | string | 是 | 签证原因 |
+| amount | number | 否 | 签证金额 |
+| attachment | file | 否 | 附件文件（支持PDF、图片、Word） |
+
+**审批流程:** 预算管理 → 总经理
+
+**响应:**
+```json
+{
+  "success": true,
+  "message": "现场签证创建成功，等待审批",
+  "data": {
+    "id": 1,
+    "visa_no": "VISA-2026-001",
+    "status": "pending",
+    "attachment": "/uploads/visa/VISA-2026-001.pdf"
+  }
+}
+```
+
+---
+
+## 7.4 甲方需求变更（扩展附件）
+
+### 7.4.1 创建甲方需求变更（含附件）
+
+```
+POST /api/changes/owner-changes
+Authorization: Bearer <token>
+Content-Type: multipart/form-data
+```
+
+**请求体:**
+```
+project_id: 1
+change_content: 变更内容描述
+reason: 变更原因
+amount: 10000
+remark: 备注
+attachment: [文件]
+```
+
+**参数说明:**
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| project_id | number | 是 | 关联项目ID |
+| change_content | string | 是 | 变更内容 |
+| reason | string | 是 | 变更原因 |
+| amount | number | 否 | 变更金额 |
+| attachment | file | 否 | 附件文件 |
+
+**审批流程:** 预算管理 → 总经理
+
+---
+
+## 7.5 超量采购变更（扩展附件）
+
+### 7.5.1 创建超量采购变更（含附件）
+
+```
+POST /api/overage-approvals
+Authorization: Bearer <token>
+Content-Type: multipart/form-data
+```
+
+**请求体:**
+```
+project_id: 1
+contract_id: 10
+type: material
+material_name: 钢材
+specification: Q235B
+unit: 吨
+approved_quantity: 100
+actual_quantity: 110
+overage_quantity: 10
+overage_reason: 现场签证单
+attachment: [文件]
+```
+
+**参数说明:**
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| project_id | number | 是 | 关联项目ID |
+| contract_id | number | 是 | 关联合同ID |
+| type | string | 是 | material(材料), equipment(设备) |
+| overage_reason | string | 是 | 超量原因：design_change(设计变更)、site_visa(现场签证单)、other(其他) |
+| attachment | file | 否 | 附件文件 |
+
+**审批流程:** 预算管理 → 总经理
+
+---
+
+## 7.6 附件上传通用接口
+
+### 7.6.1 上传附件
+
+```
+POST /api/attachments/upload
+Authorization: Bearer <token>
+Content-Type: multipart/form-data
+```
+
+**请求体:**
+```
+entity_type: visa
+entity_id: 1
+file: [文件]
+```
+
+**entity_type 可选值:**
+- `visa` - 现场签证
+- `owner_change` - 甲方需求变更
+- `overage` - 超量采购变更
+- `contract` - 合同附件
+- `project` - 项目附件
+- `bid_notice` - 中标通知书
+
+**响应:**
+```json
+{
+  "success": true,
+  "data": {
+    "id": 1,
+    "file_name": "签证单.pdf",
+    "file_path": "/uploads/visa/2026/03/xxx.pdf",
+    "file_size": 102400,
+    "file_type": "application/pdf"
+  }
+}
+```
+
+### 7.6.2 获取附件列表
+
+```
+GET /api/attachments?entity_type=visa&entity_id=1
+Authorization: Bearer <token>
+```
+
+### 7.6.3 下载附件
+
+```
+GET /api/attachments/:id/download
+Authorization: Bearer <token>
+```
+
+### 7.6.4 删除附件
+
+```
+DELETE /api/attachments/:id
+Authorization: Bearer <token>
+```
+
+---
+
+# 8. 开发优先级
+
+根据问题传报需求，开发优先级如下：
+
+## P0 - 高优先级（核心功能）
+1. **支出合同扩展字段** - 7个字段（运输方式、接货人等）
+2. **零星采购税点** - tax_type, tax_rate 字段
+3. **现场签证关联合同** - contract_id 字段
+
+## P1 - 中优先级（流程完善）
+4. **附件上传通用模块** - 统一附件管理
+5. **现场签证附件** - attachment 字段
+6. **甲方需求变更附件** - attachment 字段
+7. **超量采购变更附件** - attachment 字段
+
+## P2 - 低优先级（增强功能）
+8. **合同模板管理** - 模板表和CRUD接口
+9. **根据模板生成合同** - 模板变量替换
