@@ -297,7 +297,16 @@ router.post('/expense', checkPermission('contract:create'), (req, res) => {
     start_date,
     end_date,
     description,
-    contract_category // 合同分类：equipment(设备类) / material(材料类)
+    contract_category, // 合同分类：equipment(设备类) / material(材料类) / construction(施工类)
+    
+    // 问题传报需求：支出合同扩展字段
+    transport_method,   // 运输方式：party_a(甲方), party_b(乙方)
+    receiver_name,      // 接货人
+    delivery_tolerance, // 交货正负差
+    delivery_deadline,  // 交货期限
+    payment_method,     // 货款结算方式
+    acceptor_name,      // 验收负责人
+    warranty_period     // 质保期
   } = req.body;
   
   // 验证必填字段
@@ -354,13 +363,15 @@ router.post('/expense', checkPermission('contract:create'), (req, res) => {
         contract_no, name, type, project_id, 
         party_a, party_b, amount,
         sign_date, start_date, end_date,
-        status, creator_id, supplier_id, purchase_list_id, contract_category
-      ) VALUES (?, ?, 'expense', ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?, ?)
+        status, creator_id, supplier_id, purchase_list_id, contract_category,
+        transport_method, receiver_name, delivery_tolerance, delivery_deadline, payment_method, acceptor_name, warranty_period
+      ) VALUES (?, ?, 'expense', ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       contractNo, name, project_id,
       party_a || '本公司', party_b, amount || 0,
       sign_date, start_date, end_date,
-      userId, supplier_id, purchase_list_id, contract_category || 'equipment'
+      userId, supplier_id, purchase_list_id, contract_category || 'equipment',
+      transport_method, receiver_name, delivery_tolerance, delivery_deadline, payment_method, acceptor_name, warranty_period
     );
     
     const newContract = db.prepare(`
