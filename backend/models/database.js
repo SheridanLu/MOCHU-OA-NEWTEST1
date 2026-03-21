@@ -600,6 +600,27 @@ function initDatabase() {
     }
   });
 
+  // ========== 问题传报需求：支出合同扩展字段 ==========
+  
+  // 支出合同扩展字段（运输方式、接货人、交货差、交货期限、结算方式、验收负责人、质保期）
+  const contractDeliveryColumns = [
+    { name: 'transport_method', type: 'TEXT' },           // 运输方式: party_a(甲方), party_b(乙方)
+    { name: 'receiver_name', type: 'TEXT' },              // 接货人
+    { name: 'delivery_tolerance', type: 'TEXT' },         // 交货正负差（如 ±5%）
+    { name: 'delivery_deadline', type: 'DATE' },          // 交货期限
+    { name: 'payment_method', type: 'TEXT' },             // 货款结算方式
+    { name: 'acceptor_name', type: 'TEXT' },              // 验收负责人
+    { name: 'warranty_period', type: 'TEXT' }             // 质保期
+  ];
+
+  contractDeliveryColumns.forEach(col => {
+    try {
+      db.exec(`ALTER TABLE contracts ADD COLUMN ${col.name} ${col.type}`);
+    } catch (e) {
+      // 字段已存在，忽略错误
+    }
+  });
+
   // 审批记录表 - approval_records
   db.exec(`
     CREATE TABLE IF NOT EXISTS approval_records (
@@ -795,6 +816,22 @@ function initDatabase() {
     CREATE INDEX IF NOT EXISTS idx_zero_purchases_created ON zero_purchases(created_at)
   `);
 
+  // ========== 问题传报需求：零星采购税点字段 ==========
+  const zeroPurchaseTaxColumns = [
+    { name: 'tax_type', type: "TEXT DEFAULT 'none'" },     // 税票类型: none(无), general(普票), special(专票)
+    { name: 'tax_rate', type: 'DECIMAL(5,2) DEFAULT 0' },  // 税率: 0, 1, 3, 6, 9, 13
+    { name: 'tax_amount', type: 'DECIMAL(15,2) DEFAULT 0' }, // 税额
+    { name: 'amount_with_tax', type: 'DECIMAL(15,2) DEFAULT 0' } // 含税金额
+  ];
+
+  zeroPurchaseTaxColumns.forEach(col => {
+    try {
+      db.exec(`ALTER TABLE zero_purchases ADD COLUMN ${col.name} ${col.type}`);
+    } catch (e) {
+      // 字段已存在，忽略错误
+    }
+  });
+
   // 零星采购明细表 - zero_purchase_items
   db.exec(`
     CREATE TABLE IF NOT EXISTS zero_purchase_items (
@@ -805,6 +842,9 @@ function initDatabase() {
       unit TEXT,
       quantity DECIMAL(10,2) DEFAULT 0,
       unit_price DECIMAL(10,2) DEFAULT 0,
+      tax_rate DECIMAL(5,2) DEFAULT 0,
+      tax_amount DECIMAL(15,2) DEFAULT 0,
+      amount_with_tax DECIMAL(15,2) DEFAULT 0,
       base_price DECIMAL(10,2),
       total_price DECIMAL(15,2) DEFAULT 0,
       has_warning INTEGER DEFAULT 0,
@@ -1814,6 +1854,21 @@ function initDatabase() {
   db.exec(`
     CREATE INDEX IF NOT EXISTS idx_change_visa_created ON change_visa(created_at)
   `);
+
+  // ========== 问题传报需求：现场签证关联合同和附件 ==========
+  const changeVisaColumns = [
+    { name: 'contract_id', type: 'INTEGER REFERENCES contracts(id)' },  // 关联支出合同
+    { name: 'attachment', type: 'TEXT' },                                 // 附件路径
+    { name: 'attachment_name', type: 'TEXT' }                             // 附件原始文件名
+  ];
+
+  changeVisaColumns.forEach(col => {
+    try {
+      db.exec(`ALTER TABLE change_visa ADD COLUMN ${col.name} ${col.type}`);
+    } catch (e) {
+      // 字段已存在，忽略错误
+    }
+  });
 
   // 现场签证审批记录表 - change_visa_approvals
   db.exec(`
