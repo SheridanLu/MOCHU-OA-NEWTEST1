@@ -103,6 +103,9 @@ app.use('/api/todos', todoRoutes);
 // 问题传报需求： 附件上传通用API
 const attachmentRoutes = require('./routes/attachments');
 app.use('/api/attachments', attachmentRoutes);
+// P2: 合同模板管理API
+const contractTemplateRoutes = require('./routes/contractTemplates');
+app.use('/api/contract-templates', contractTemplateRoutes);
 // Task 60: 系统管理 - 审计日志 API
 app.use('/api/audit', auditRoutes);
 app.use('/api/announcements', announcementRoutes);

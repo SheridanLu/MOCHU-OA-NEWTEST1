@@ -2372,6 +2372,40 @@ function initDatabase() {
     CREATE INDEX IF NOT EXISTS idx_attachments_uploader ON attachments(uploader_id)
   `);
 
+  // ========== P2: 合同模板管理 ==========
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS contract_templates (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,                     -- 模板名称
+      code TEXT UNIQUE,                       -- 模板代码
+      type TEXT NOT NULL,                     -- 合同类型: income(收入), expense(支出)
+      category TEXT,                          -- 合同类别: equipment, material, labor, construction
+      description TEXT,                       -- 模板描述
+      content TEXT,                           -- 模板内容（HTML/Markdown/JSON）
+      variables TEXT,                         -- 可变字段列表（JSON数组）
+      is_default INTEGER DEFAULT 0,           -- 是否默认模板
+      status TEXT DEFAULT 'active',           -- 状态: active, inactive
+      creator_id INTEGER,                     -- 创建人ID
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (creator_id) REFERENCES users(id)
+    )
+  `);
+
+  // 为合同模板创建索引
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_contract_templates_type ON contract_templates(type)
+  `);
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_contract_templates_category ON contract_templates(category)
+  `);
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_contract_templates_status ON contract_templates(status)
+  `);
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_contract_templates_default ON contract_templates(is_default)
+  `);
+
   console.log('Database initialized successfully');
 
   // 初始化部门数据
