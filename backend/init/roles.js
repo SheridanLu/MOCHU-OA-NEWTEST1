@@ -236,6 +236,28 @@ const ROLES = [
       // 数据相关
       'data:view', 'data:input', 'data:export'
     ]
+  },
+  {
+    id: 11,
+    code: 'ARCHIVIST',
+    name: '资料员',
+    description: '负责文档归档、图纸管理、库存出入库等资料管理',
+    permissions: [
+      // 文档管理
+      'document:view', 'document:create', 'document:edit', 'document:delete',
+      // 图纸管理
+      'drawing:view', 'drawing:create', 'drawing:edit', 'drawing:delete',
+      // 竣工资料
+      'completion:view', 'completion:create', 'completion:edit',
+      // 附件管理
+      'attachment:view', 'attachment:upload', 'attachment:download', 'attachment:delete',
+      // 库存管理
+      'inventory:view', 'inventory:in', 'inventory:out',
+      // 领用审批
+      'requisition:approve',
+      // 数据相关
+      'data:view', 'data:export'
+    ]
   }
 ];
 
