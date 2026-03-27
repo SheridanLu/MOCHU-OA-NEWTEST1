@@ -14,7 +14,7 @@ import {
   Card, Table, Button, Space, Input, Select, Modal, Form, message,
   Tag, Tooltip, Popconfirm, Divider, Statistic, Row, Col, Alert,
   Descriptions, Steps, List, Empty, Spin, Badge, Typography, InputNumber,
-  Progress, Tabs, TextArea
+  Progress, Tabs
 } from 'antd';
 import {
   PlusOutlined, SearchOutlined, DeleteOutlined, EditOutlined,

@@ -1220,7 +1220,9 @@ function initDatabase() {
     { name: 'handler_id', type: 'INTEGER' },
     { name: 'handler_name', type: 'TEXT' },
     { name: 'in_date', type: 'DATE' },
-    { name: 'payment_status', type: "TEXT DEFAULT 'unpaid'" }  // Task 48: 入库单付款状态
+    { name: 'payment_status', type: "TEXT DEFAULT 'unpaid'" },  // Task 48: 入库单付款状态
+    { name: 'approval_status', type: "TEXT DEFAULT 'draft'" },
+    { name: 'attachments', type: 'TEXT' }
   ];
 
   stockInColumns.forEach(col => {
@@ -2346,8 +2348,6 @@ function initDatabase() {
   db.exec(`
     CREATE INDEX IF NOT EXISTS idx_completion_documents_type ON completion_documents(doc_type)
   `);
-  `);
-
   // ========== 问题传报需求： 附件上传通用表 ==========
   db.exec(`
     CREATE TABLE IF NOT EXISTS attachments (

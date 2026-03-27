@@ -3471,4 +3471,64 @@ router.get('/query/locations', (req, res) => {
   });
 });
 
+/**
+ * POST /api/stock/in/:id/approve
+ * 入库单审批通过
+ */
+router.post('/in/:id/approve', authMiddleware, (req, res) => {
+  try {
+    const { id } = req.params;
+    const { comment } = req.body;
+    const userId = req.user.id;
+
+    const stockIn = db.prepare('SELECT * FROM stock_in WHERE id = ?').get(id);
+    if (!stockIn) {
+      return res.status(404).json({ success: false, message: '入库单不存在' });
+    }
+    if (stockIn.approval_status !== 'pending') {
+      return res.status(400).json({ success: false, message: '入库单不在待审批状态' });
+    }
+
+    // 更新入库单状态
+    db.prepare("UPDATE stock_in SET approval_status = 'approved', updated_at = CURRENT_TIMESTAMP WHERE id = ?").run(id);
+
+    // 如果入库单关联了采购单，更新采购单入库状态
+    if (stockIn.purchase_id) {
+      db.prepare("UPDATE batch_purchases SET stock_status = 'partial' WHERE id = ? AND stock_status = 'none'").run(stockIn.purchase_id);
+    }
+
+    res.json({ success: true, message: '入库单审批通过' });
+  } catch (error) {
+    console.error('入库单审批失败:', error);
+    res.status(500).json({ success: false, message: '审批失败: ' + error.message });
+  }
+});
+
+/**
+ * POST /api/stock/in/:id/reject
+ * 入库单审批拒绝
+ */
+router.post('/in/:id/reject', authMiddleware, (req, res) => {
+  try {
+    const { id } = req.params;
+    const { comment } = req.body;
+    const userId = req.user.id;
+
+    const stockIn = db.prepare('SELECT * FROM stock_in WHERE id = ?').get(id);
+    if (!stockIn) {
+      return res.status(404).json({ success: false, message: '入库单不存在' });
+    }
+    if (stockIn.approval_status !== 'pending') {
+      return res.status(400).json({ success: false, message: '入库单不在待审批状态' });
+    }
+
+    db.prepare("UPDATE stock_in SET approval_status = 'rejected', updated_at = CURRENT_TIMESTAMP WHERE id = ?").run(id);
+
+    res.json({ success: true, message: '入库单已拒绝' });
+  } catch (error) {
+    console.error('入库单审批拒绝失败:', error);
+    res.status(500).json({ success: false, message: '审批失败: ' + error.message });
+  }
+});
+
 module.exports = router;

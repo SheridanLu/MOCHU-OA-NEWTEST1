@@ -328,6 +328,54 @@ function ApprovalList() {
           body: JSON.stringify({ comment })
         });
         result = { data: await response.json() };
+      } else if (approvalType === 'labor_visa') {
+        // 劳务签证审批
+        const response = await fetch(`${API_BASE}/labor-visa/${currentApproval.id}/approve`, {
+          method: 'POST',
+          headers: getAuthHeaders(),
+          body: JSON.stringify({ comment })
+        });
+        result = { data: await response.json() };
+      } else if (approvalType === 'expense_contract') {
+        // 支出合同审批
+        const response = await fetch(`${API_BASE}/contract/${currentApproval.id}/approve`, {
+          method: 'POST',
+          headers: getAuthHeaders(),
+          body: JSON.stringify({ comment })
+        });
+        result = { data: await response.json() };
+      } else if (approvalType === 'sporadic_purchase') {
+        // 零星采购审批（新编号）
+        const response = await fetch(`${API_BASE}/purchase/sporadic/${currentApproval.id}/approve`, {
+          method: 'POST',
+          headers: getAuthHeaders(),
+          body: JSON.stringify({ comment })
+        });
+        result = { data: await response.json() };
+      } else if (approvalType === 'stock_in') {
+        // 入库单审批
+        const response = await fetch(`${API_BASE}/stock/in/${currentApproval.id}/approve`, {
+          method: 'POST',
+          headers: getAuthHeaders(),
+          body: JSON.stringify({ comment })
+        });
+        result = { data: await response.json() };
+      } else if (approvalType === 'site_visa') {
+        // 现场签证审批
+        const response = await fetch(`${API_BASE}/changes/visa/${currentApproval.id}/approve`, {
+          method: 'POST',
+          headers: getAuthHeaders(),
+          body: JSON.stringify({ comment })
+        });
+        result = { data: await response.json() };
+      } else if (approvalType === 'overage_approval') {
+        // 超量审批
+        const response = await fetch(`${API_BASE}/overage-approvals/${currentApproval.id}/approve`, {
+          method: 'POST',
+          headers: getAuthHeaders(),
+          body: JSON.stringify({ comment })
+        });
+        result = { data: await response.json() };
       } else {
         // 默认使用项目审批API
         result = await approvalService.approveProject(
@@ -401,6 +449,106 @@ function ApprovalList() {
           method: 'POST',
           headers: getAuthHeaders(),
           body: JSON.stringify({ approve: false, comment })
+        });
+        result = { data: await response.json() };
+      } else if (approvalType === 'contract' || approvalType === 'expense_contract') {
+        // 合同审批（兼容两种来源名）
+        const response = await fetch(`${API_BASE}/contract/${currentApproval.id}/reject`, {
+          method: 'POST',
+          headers: getAuthHeaders(),
+          body: JSON.stringify({ comment })
+        });
+        result = { data: await response.json() };
+      } else if (approvalType === 'batch_purchase') {
+        const response = await fetch(`${API_BASE}/batch-purchase/batch/${currentApproval.id}/reject`, {
+          method: 'POST',
+          headers: getAuthHeaders(),
+          body: JSON.stringify({ comment })
+        });
+        result = { data: await response.json() };
+      } else if (approvalType === 'material_payment') {
+        const response = await fetch(`${API_BASE}/payment/material/${currentApproval.id}/reject`, {
+          method: 'POST',
+          headers: getAuthHeaders(),
+          body: JSON.stringify({ comment })
+        });
+        result = { data: await response.json() };
+      } else if (approvalType === 'labor_payment') {
+        const response = await fetch(`${API_BASE}/payment/labor/${currentApproval.id}/reject`, {
+          method: 'POST',
+          headers: getAuthHeaders(),
+          body: JSON.stringify({ comment })
+        });
+        result = { data: await response.json() };
+      } else if (approvalType === 'material_change') {
+        const response = await fetch(`${API_BASE}/change/material/${currentApproval.id}/reject`, {
+          method: 'POST',
+          headers: getAuthHeaders(),
+          body: JSON.stringify({ comment })
+        });
+        result = { data: await response.json() };
+      } else if (approvalType === 'visa_change' || approvalType === 'labor_visa') {
+        // 劳务签证/签证变更审批
+        const response = await fetch(`${API_BASE}/change/visa/${currentApproval.id}/reject`, {
+          method: 'POST',
+          headers: getAuthHeaders(),
+          body: JSON.stringify({ comment })
+        });
+        result = { data: await response.json() };
+      } else if (approvalType === 'owner_change') {
+        const response = await fetch(`${API_BASE}/change/owner/${currentApproval.id}/reject`, {
+          method: 'POST',
+          headers: getAuthHeaders(),
+          body: JSON.stringify({ comment })
+        });
+        result = { data: await response.json() };
+      } else if (approvalType === 'stock_out') {
+        const response = await fetch(`${API_BASE}/stock/out/${currentApproval.id}/reject`, {
+          method: 'POST',
+          headers: getAuthHeaders(),
+          body: JSON.stringify({ comment })
+        });
+        result = { data: await response.json() };
+      } else if (approvalType === 'labor_settlement') {
+        const response = await fetch(`${API_BASE}/completion/labor-settlement/${currentApproval.id}/reject`, {
+          method: 'POST',
+          headers: getAuthHeaders(),
+          body: JSON.stringify({ comment })
+        });
+        result = { data: await response.json() };
+      } else if (approvalType === 'overage_application') {
+        const response = await fetch(`${API_BASE}/purchase/overage-apply/${currentApproval.id}/reject`, {
+          method: 'POST',
+          headers: getAuthHeaders(),
+          body: JSON.stringify({ comment })
+        });
+        result = { data: await response.json() };
+      } else if (approvalType === 'sporadic' || approvalType === 'sporadic_purchase') {
+        const response = await fetch(`${API_BASE}/purchase/sporadic/${currentApproval.id}/reject`, {
+          method: 'POST',
+          headers: getAuthHeaders(),
+          body: JSON.stringify({ comment })
+        });
+        result = { data: await response.json() };
+      } else if (approvalType === 'stock_in') {
+        const response = await fetch(`${API_BASE}/stock/in/${currentApproval.id}/reject`, {
+          method: 'POST',
+          headers: getAuthHeaders(),
+          body: JSON.stringify({ comment })
+        });
+        result = { data: await response.json() };
+      } else if (approvalType === 'site_visa') {
+        const response = await fetch(`${API_BASE}/changes/visa/${currentApproval.id}/reject`, {
+          method: 'POST',
+          headers: getAuthHeaders(),
+          body: JSON.stringify({ comment })
+        });
+        result = { data: await response.json() };
+      } else if (approvalType === 'overage_approval') {
+        const response = await fetch(`${API_BASE}/overage-approvals/${currentApproval.id}/reject`, {
+          method: 'POST',
+          headers: getAuthHeaders(),
+          body: JSON.stringify({ comment })
         });
         result = { data: await response.json() };
       } else {
