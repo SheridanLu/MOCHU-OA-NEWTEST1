@@ -229,6 +229,7 @@ function SiteVisaForm({ onClose, onSuccess, projects }) {
     visa_content: '',
     reason: '',
     amount: '',
+    contract_id: '',
     remark: ''
   });
   const [loading, setLoading] = useState(false);
@@ -290,6 +291,20 @@ function SiteVisaForm({ onClose, onSuccess, projects }) {
               required
             >
               <option value="">请选择项目</option>
+              {projects.map(p => (
+                <option key={p.id} value={p.id}>{p.name}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="form-group">
+            <label>关联合同 <span className="required">*</span></label>
+            <select
+              value={formData.contract_id}
+              onChange={(e) => setFormData({ ...formData, contract_id: e.target.value })}
+              required
+            >
+              <option value="">请选择关联合同</option>
               {projects.map(p => (
                 <option key={p.id} value={p.id}>{p.name}</option>
               ))}

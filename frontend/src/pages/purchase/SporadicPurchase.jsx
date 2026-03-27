@@ -14,7 +14,7 @@ import {
   Card, Table, Button, Space, Input, Select, Modal, Form, message,
   Tag, Tooltip, Popconfirm, Divider, Statistic, Row, Col, Alert,
   Descriptions, Steps, List, Empty, Spin, Badge, Typography, InputNumber,
-  Progress, Tabs
+  Progress, Tabs, TextArea
 } from 'antd';
 import {
   PlusOutlined, SearchOutlined, DeleteOutlined, EditOutlined,
@@ -1001,6 +1001,55 @@ const SporadicPurchase = () => {
           </Form.Item>
           <Form.Item name="remark" label="备注">
             <TextArea rows={1} placeholder="备注信息（可选）" />
+          </Form.Item>
+
+          <Divider>税票信息</Divider>
+
+          <Row gutter={24}>
+            <Col xs={24} sm={12} md={8}>
+              <Form.Item
+                name="tax_type"
+                label="税票类型"
+                tooltip="选择发票类型"
+              >
+                <Select placeholder="请选择税票类型">
+                  <Option value="none">无</Option>
+                  <Option value="general">普票</Option>
+                  <Option value="special">专票</Option>
+                </Select>
+              </Form.Item>
+            </Col>
+            <Col xs={24} sm={12} md={8}>
+              <Form.Item
+                name="tax_rate"
+                label="税率"
+                tooltip="根据税票类型选择对应税率"
+              >
+                <Select placeholder="请选择税率">
+                  <Option value={0}>0%</Option>
+                  <Option value={1}>1%</Option>
+                  <Option value={3}>3%</Option>
+                  <Option value={6}>6%</Option>
+                  <Option value={9}>9%</Option>
+                  <Option value={13}>13%</Option>
+                </Select>
+              </Form.Item>
+            </Col>
+          </Row>
+
+          <Form.Item label="含税信息" style={{ marginTop: 8 }}>
+            <Row gutter={24}>
+              <Col span={8}>
+                <Form.Item label="税额">
+                  <Text style={{ color: '#999' }}>自动计算</Text>
+                </Form.Item>
+              </Col>
+              <Col span={8}>
+                <Form.Item label="含税金额">
+                  <Text style={{ color: '#999' }}>自动计算</Text>
+                </Form.Item>
+              </Col>
+            </Row>
           </Form.Item>
 
           <Divider>物资清单</Divider>

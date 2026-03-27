@@ -934,6 +934,81 @@ function ExpenseContractCreate() {
             </Col>
           </Row>
 
+          <Divider orientation="left">物流与验收信息</Divider>
+
+          <Row gutter={24}>
+            <Col xs={24} sm={12} md={8}>
+              <Form.Item
+                name="transport_method"
+                label="运输方式"
+                tooltip="选择由甲方还是乙方负责运输"
+              >
+                <Select placeholder="请选择运输方式">
+                  <Option value="party_a">甲方负责运输</Option>
+                  <Option value="party_b">乙方负责运输</Option>
+                </Select>
+              </Form.Item>
+            </Col>
+            <Col xs={24} sm={12} md={8}>
+              <Form.Item
+                name="receiver_name"
+                label="接货人"
+              >
+                <Input placeholder="请输入接货人姓名" />
+              </Form.Item>
+            </Col>
+          </Row>
+          <Row gutter={24}>
+            <Col xs={24} sm={12} md={8}>
+              <Form.Item
+                name="delivery_tolerance"
+                label="交货正负差"
+                tooltip="允许的交货数量偏差，如 ±5%、±10件"
+              >
+                <Input placeholder="如：±5% 或 ±10件" />
+              </Form.Item>
+            </Col>
+            <Col xs={24} sm={12} md={8}>
+              <Form.Item
+                name="delivery_deadline"
+                label="交货期限"
+              >
+                <DatePicker 
+                  style={{ width: '100%' }}
+                  placeholder="请选择交货截止日期"
+                />
+              </Form.Item>
+            </Col>
+          </Row>
+          <Row gutter={24}>
+            <Col xs={24} sm={12} md={8}>
+              <Form.Item
+                name="payment_method"
+                label="货款结算方式"
+              >
+                <Input placeholder="如：月结30天、货到付款" />
+              </Form.Item>
+            </Col>
+            <Col xs={24} sm={12} md={8}>
+              <Form.Item
+                name="acceptor_name"
+                label="验收负责人"
+              >
+                <Input placeholder="请输入验收负责人姓名" />
+              </Form.Item>
+            </Col>
+          </Row>
+          <Row gutter={24}>
+            <Col xs={24} sm={12} md={8}>
+              <Form.Item
+                name="warranty_period"
+                label="质保期"
+              >
+                <Input placeholder="如：12个月、2年" />
+              </Form.Item>
+            </Col>
+          </Row>
+
           <Divider orientation="left">其他信息</Divider>
 
           <Row gutter={24}>
