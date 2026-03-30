@@ -15,6 +15,7 @@ import RoleManage from './pages/system/RoleManage';
 import PermissionManage from './pages/system/PermissionManage';
 import AuditLog from './pages/system/AuditLog';
 import AnnouncementList from './pages/system/AnnouncementList';
+import Attachments from './pages/system/Attachments';
 
 // 通讯录
 import Directory from './pages/directory/Directory';
@@ -33,6 +34,7 @@ import ContractCreate from './pages/contract/ContractCreate';
 import ExpenseContractCreate from './pages/contract/ExpenseContractCreate';
 import ExpenseContractDetail from './pages/contract/ExpenseContractDetail';
 import OvercheckApproval from './pages/contract/OvercheckApproval';
+import ContractTemplates from './pages/contract/ContractTemplates';
 
 // 采购管理模块
 import PriceLibrary from './pages/material/PriceLibrary';
@@ -107,6 +109,7 @@ const getFilteredMenuConfig = () => {
   systemChildren.push(
     { key: 'todos', name: '我的待办', path: '/todos' },
     { key: 'announcements', name: '通知公告', path: '/system/announcements' },
+    { key: 'attachments', name: '附件管理', path: '/system/attachments' },
     { key: 'audit', name: '操作日志', path: '/system/audit' }
   );
 
@@ -138,6 +141,7 @@ const getFilteredMenuConfig = () => {
         { key: 'income', name: '收入合同', path: '/contract/create' },
         { key: 'expense', name: '支出合同', path: '/contract/expense-create' },
         { key: 'overcheck', name: '超量审批', path: '/contract/overcheck-approval' },
+        { key: 'templates', name: '合同模板', path: '/contract/templates' },
       ]
     },
     {
@@ -521,6 +525,9 @@ function App() {
         <Route path="/system/announcements" element={
           <ProtectedRoute><MainLayout><AnnouncementList /></MainLayout></ProtectedRoute>
         } />
+        <Route path="/system/attachments" element={
+          <ProtectedRoute><MainLayout><Attachments /></MainLayout></ProtectedRoute>
+        } />
         <Route path="/system/audit" element={
           <ProtectedRoute><MainLayout><AuditLog /></MainLayout></ProtectedRoute>
         } />
@@ -565,6 +572,9 @@ function App() {
         } />
         <Route path="/contract/overcheck-approval" element={
           <ProtectedRoute><MainLayout><OvercheckApproval /></MainLayout></ProtectedRoute>
+        } />
+        <Route path="/contract/templates" element={
+          <ProtectedRoute><MainLayout><ContractTemplates /></MainLayout></ProtectedRoute>
         } />
 
         {/* 采购管理 */}
