@@ -219,27 +219,42 @@ router.post('/upload-multiple', authMiddleware, upload.array('files', 10), (req,
  * - entity_id: 实体ID
  */
 router.get('/', authMiddleware, (req, res) => {
-  const { entity_type, entity_id } = req.query;
-
-  if (!entity_type || !entity_id) {
-    return res.status(400).json({
-      success: false,
-      message: '请提供entity_type和entity_id'
-    });
-  }
+  const { entity_type, entity_id, page = 1, pageSize = 20 } = req.query;
 
   try {
-    const attachments = db.prepare(`
-      SELECT a.*, u.real_name as uploader_name
-      FROM attachments a
-      LEFT JOIN users u ON a.uploader_id = u.id
-      WHERE a.entity_type = ? AND a.entity_id = ?
-      ORDER BY a.created_at DESC
-    `).all(entity_type, parseInt(entity_id));
+    let sql, countSql, params, countParams;
+
+    if (entity_type && entity_id) {
+      sql = `
+        SELECT a.*, u.real_name as uploader_name
+        FROM attachments a
+        LEFT JOIN users u ON a.uploader_id = u.id
+        WHERE a.entity_type = ? AND a.entity_id = ?
+        ORDER BY a.created_at DESC
+      `;
+      params = [entity_type, parseInt(entity_id)];
+    } else {
+      sql = `
+        SELECT a.*, u.real_name as uploader_name
+        FROM attachments a
+        LEFT JOIN users u ON a.uploader_id = u.id
+        ORDER BY a.created_at DESC
+      `;
+      params = [];
+    }
+
+    countSql = `SELECT COUNT(*) as total FROM (${sql})`;
+    const total = db.prepare(countSql).get(...params).total;
+
+    sql += ` LIMIT ? OFFSET ?`;
+    params.push(parseInt(pageSize), (parseInt(page) - 1) * parseInt(pageSize));
+
+    const attachments = db.prepare(sql).all(...params);
 
     res.json({
       success: true,
-      data: attachments
+      data: attachments,
+      pagination: { total, page: parseInt(page), pageSize: parseInt(pageSize) }
     });
   } catch (error) {
     console.error('获取附件列表失败:', error);
