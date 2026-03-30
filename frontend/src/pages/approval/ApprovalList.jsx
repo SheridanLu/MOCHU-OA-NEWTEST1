@@ -200,6 +200,10 @@ function ApprovalList() {
       message.error('未选择审批记录');
       return;
     }
+    if (!comment.trim()) {
+      message.warning('请填写审批意见');
+      return;
+    }
     
     console.log('开始审批:', currentApproval);
     setSubmitting(true);
@@ -1159,7 +1163,7 @@ function ApprovalList() {
       >
         <p>确定通过 <strong>{currentApproval?.project_name || currentApproval?.contract_name || currentApproval?.title || '该审批'}</strong> 的审批？</p>
         <div style={{ marginTop: 16 }}>
-          <div style={{ marginBottom: 8 }}>审批意见（可选）：</div>
+          <div style={{ marginBottom: 8 }}>审批意见（必填）：</div>
           <Input.TextArea
             value={comment}
             onChange={(e) => setComment(e.target.value)}

@@ -287,7 +287,9 @@ router.post('/', checkPermission('material:create'), (req, res) => {
     remarks,
     is_excessive,
     is_legal_review,
-    // 问题传报需求：税点字段
+    // PRD要求字段
+    project_id,        // 关联项目ID
+    contract_id,       // 关联收入合同ID（必填）
     tax_type,          // 税票类型: none(无), general(普票), special(专票)
     tax_rate           // 税率: 0, 1, 3, 6, 9, 13
   } = req.body;
@@ -296,6 +298,13 @@ router.post('/', checkPermission('material:create'), (req, res) => {
     return res.status(400).json({
       success: false,
       message: '采购名称不能为空'
+    });
+  }
+  
+  if (!contract_id) {
+    return res.status(400).json({
+      success: false,
+      message: '请选择关联收入合同'
     });
   }
   
@@ -311,6 +320,18 @@ router.post('/', checkPermission('material:create'), (req, res) => {
   
   try {
     const transaction = db.transaction(() => {
+      // PRD: 校验金额不超过收入合同的0.5%
+      const contract = db.prepare('SELECT contract_amount FROM contracts WHERE id = ? AND type = ?').get(contract_id, 'income');
+      if (!contract) {
+        throw new Error('收入合同不存在');
+      }
+      const contractAmount = parseFloat(contract.contract_amount) || 0;
+      const purchaseAmount = parseFloat(total_amount) || 0;
+      const percentage = contractAmount > 0 ? (purchaseAmount / contractAmount) * 100 : 0;
+      if (percentage > 0.5) {
+        throw new Error(`零星采购金额 ¥${purchaseAmount.toFixed(2)} 超出收入合同金额的0.5%（当前占比 ${percentage.toFixed(2)}%，限额 ¥${(contractAmount * 0.005).toFixed(2)}）`);
+      }
+
       // 检查价格预警
       let priceWarningCount = 0;
       let maxWarningLevel = 'none';
@@ -349,12 +370,14 @@ router.post('/', checkPermission('material:create'), (req, res) => {
         INSERT INTO zero_purchases (
           purchase_no, name, supplier_id, total_amount,
           tax_type, tax_rate, tax_amount, amount_with_tax,
+          contract_id, project_id,
           status, warning_level, price_warning_count,
           is_excessive, is_legal_review, remarks, creator_id
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'draft', ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'draft', ?, ?, ?, ?, ?)
       `).run(
         purchaseNo, name.trim(), supplier_id || null, subtotalAmount,
         taxTypeValue, taxRateValue, taxAmountValue, amountWithTax,
+        contract_id || null, project_id || null,
         warningLevel, priceWarningCount,
         is_excessive ? 1 : 0, is_legal_review ? 1 : 0, remarks || null, userId
       );

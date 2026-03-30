@@ -821,7 +821,9 @@ function initDatabase() {
     { name: 'tax_type', type: "TEXT DEFAULT 'none'" },     // 税票类型: none(无), general(普票), special(专票)
     { name: 'tax_rate', type: 'DECIMAL(5,2) DEFAULT 0' },  // 税率: 0, 1, 3, 6, 9, 13
     { name: 'tax_amount', type: 'DECIMAL(15,2) DEFAULT 0' }, // 税额
-    { name: 'amount_with_tax', type: 'DECIMAL(15,2) DEFAULT 0' } // 含税金额
+    { name: 'amount_with_tax', type: 'DECIMAL(15,2) DEFAULT 0' }, // 含税金额
+    { name: 'contract_id', type: 'INTEGER' },             // 关联收入合同ID（PRD要求必填）
+    { name: 'project_id', type: 'INTEGER' }               // 关联项目ID
   ];
 
   zeroPurchaseTaxColumns.forEach(col => {
@@ -971,6 +973,27 @@ function initDatabase() {
   `);
   db.exec(`
     CREATE INDEX IF NOT EXISTS idx_sporadic_purchase_approvals_sporadic ON sporadic_purchase_approvals(sporadic_id)
+  `);
+
+  // 零星采购扩展字段 - PRD要求关联收入合同
+  const sporadicColumns = [
+    { name: 'contract_id', type: 'INTEGER' },          // 关联收入合同ID
+    { name: 'tax_type', type: "TEXT DEFAULT 'none'" },  // 税票类型: none/general/special
+    { name: 'tax_rate', type: 'DECIMAL(5,2) DEFAULT 0' },// 税率(%)
+    { name: 'tax_amount', type: 'DECIMAL(15,2) DEFAULT 0' }, // 税额
+    { name: 'amount_with_tax', type: 'DECIMAL(15,2) DEFAULT 0' } // 含税金额
+  ];
+
+  sporadicColumns.forEach(col => {
+    try {
+      db.exec(`ALTER TABLE sporadic_purchases ADD COLUMN ${col.name} ${col.type}`);
+    } catch (e) {
+      // 字段已存在，忽略
+    }
+  });
+
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_sporadic_purchases_contract ON sporadic_purchases(contract_id)
   `);
 
   // ========== Task 35: 批量采购相关表 ==========

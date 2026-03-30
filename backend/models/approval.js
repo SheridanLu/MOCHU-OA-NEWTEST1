@@ -828,14 +828,11 @@ function getMaterialChangePendingApprovals(roleCodes, options = {}) {
       u.real_name as submitter_name,
       'material_change' as approval_source,
       '材料变更' as source_name,
-      ca.role as required_role
+      'BUDGET' as required_role
     FROM change_material cm
     LEFT JOIN projects p ON cm.project_id = p.id
     LEFT JOIN users u ON cm.creator_id = u.id
-    INNER JOIN material_change_approvals ca ON cm.id = ca.material_change_id
-      AND ca.action IS NULL
-      AND ca.role IN (${rolePlaceholders})
-    WHERE cm.status = 'pending_approval'
+    WHERE cm.status = 'pending'
   `;
 
   const params = [...roleArray];
@@ -920,13 +917,13 @@ function getOwnerChangePendingApprovals(roleCodes, options = {}) {
       u.real_name as submitter_name,
       'owner_change' as approval_source,
       '业主变更' as source_name,
-      ca.role as required_role
+      oca.role as required_role
     FROM change_owner co
     LEFT JOIN projects p ON co.project_id = p.id
-    LEFT JOIN users u ON co.creator_id = u.id
-    INNER JOIN change_owner_approvals oca ON co.id = ca.material_change_id
-      AND ca.action IS NULL
-      AND ca.role IN (${rolePlaceholders})
+    LEFT JOIN users u ON cm.creator_id = u.id
+    INNER JOIN change_owner_approvals oca ON co.id = oca.owner_change_id
+      AND oca.action IS NULL
+      AND oca.role IN (${rolePlaceholders})
     WHERE co.status = 'pending_approval'
   `;
 
@@ -1038,43 +1035,27 @@ function getOverageApplicationPendingApprovals(roleCodes, options = {}) {
   const { page = 1, pageSize = 10 } = options;
   const offset = (parseInt(page) - 1) * parseInt(pageSize);
 
-  const roleArray = Array.isArray(roleCodes) ? roleCodes : [roleCodes];
-  const rolePlaceholders = roleArray.map(() => '?').join(',');
-
   let sql = `
-    SELECT 
-      oa.id,
-      oa.application_no,
-      oa.project_id,
-      oa.status,
-      oa.created_at,
+    SELECT
+      co.id,
+      co.change_no,
+      co.project_id,
+      co.status,
+      co.created_at,
       p.project_no,
       p.name as project_name,
       u.real_name as submitter_name,
       'overage_application' as approval_source,
       '超量申请' as source_name,
-      oaa.role as required_role
-    FROM overage_applications oa
-    LEFT JOIN projects p ON oa.project_id = p.id
-    LEFT JOIN users u ON oa.creator_id = u.id
-    INNER JOIN overage_application_approvals oaa ON oa.id = oaa.overage_application_id
-      AND oaa.action IS NULL
-      AND oaa.role IN (${rolePlaceholders})
-    WHERE oa.status = 'pending_approval'
+      'BUDGET' as required_role
+    FROM change_overage co
+    LEFT JOIN projects p ON co.project_id = p.id
+    LEFT JOIN users u ON co.creator_id = u.id
+    WHERE co.status = 'pending'
   `;
 
-  const params = [...roleArray];
-
-  const countSql = `SELECT COUNT(*) as total FROM (${sql})`;
-  const countResult = db.prepare(countSql).get(...params);
-  const total = countResult.total;
-
-  sql += ' ORDER BY oa.created_at DESC LIMIT ? OFFSET ?';
-  params.push(parseInt(pageSize), offset);
-
-  const list = db.prepare(sql).all(...params);
-
-  return { list, total, page: parseInt(page), pageSize: parseInt(pageSize) };
+  const list = db.prepare(sql).all();
+  return { list, total: list.length, page: parseInt(page), pageSize: parseInt(pageSize) };
 }
 
 module.exports = {

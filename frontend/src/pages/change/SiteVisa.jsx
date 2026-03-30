@@ -233,6 +233,30 @@ function SiteVisaForm({ onClose, onSuccess, projects }) {
     remark: ''
   });
   const [loading, setLoading] = useState(false);
+  const [contracts, setContracts] = useState([]);
+
+  // 根据选中的项目获取支出合同列表
+  useEffect(() => {
+    if (!formData.project_id) {
+      setContracts([]);
+      setFormData(prev => ({ ...prev, contract_id: '' }));
+      return;
+    }
+    const fetchContracts = async () => {
+      try {
+        const res = await fetch(`${API_BASE}/contracts?project_id=${formData.project_id}&type=expense`, {
+          headers: getHeaders()
+        });
+        const data = await res.json();
+        if (data.success) {
+          setContracts(data.data || []);
+        }
+      } catch (error) {
+        console.error('获取合同列表失败:', error);
+      }
+    };
+    fetchContracts();
+  }, [formData.project_id]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -303,10 +327,11 @@ function SiteVisaForm({ onClose, onSuccess, projects }) {
               value={formData.contract_id}
               onChange={(e) => setFormData({ ...formData, contract_id: e.target.value })}
               required
+              disabled={!formData.project_id}
             >
-              <option value="">请选择关联合同</option>
-              {projects.map(p => (
-                <option key={p.id} value={p.id}>{p.name}</option>
+              <option value="">{formData.project_id ? '请选择关联合同' : '请先选择项目'}</option>
+              {contracts.map(c => (
+                <option key={c.id} value={c.id}>{c.contract_no || c.name}</option>
               ))}
             </select>
           </div>

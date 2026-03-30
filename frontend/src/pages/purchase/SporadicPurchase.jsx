@@ -2,7 +2,7 @@
  * Task 36 & 37: 零星采购管理与预警
  * 功能：
  * - 零星采购列表
- * - 新建零星采购（无需关联合同）
+ * - 新建零星采购（需关联合同，金额不超过合同0.5%）
  * - 直接录入物资清单
  * - 审批状态显示
  * - 限额监控（1.5%预警）
@@ -55,6 +55,13 @@ const SporadicPurchase = () => {
 
   // 限额检查
   const [limitCheck, setLimitCheck] = useState(null);
+  const [incomeContracts, setIncomeContracts] = useState([]);  // 收入合同列表
+
+  // 监听税率变化，自动计算税额和含税金额
+  const watchedTaxRate = Form.useWatch('tax_rate', form);
+  const taxRateValue = parseFloat(watchedTaxRate) || 0;
+  const calculatedTaxAmount = Math.round(formTotalAmount * taxRateValue / 100 * 100) / 100;
+  const calculatedAmountWithTax = Math.round((formTotalAmount + calculatedTaxAmount) * 100) / 100;
 
   // 预警列表
   const [warnings, setWarnings] = useState([]);
@@ -70,6 +77,23 @@ const SporadicPurchase = () => {
       }
     } catch (err) {
       console.error('获取项目列表失败:', err);
+    }
+  }, []);
+
+  // 获取收入合同列表（零星采购必须关联合同）
+  const fetchIncomeContracts = useCallback(async (projectId) => {
+    if (!projectId) {
+      setIncomeContracts([]);
+      return;
+    }
+    try {
+      const res = await fetch(`/api/contracts?project_id=${projectId}&type=income&pageSize=100`);
+      const data = await res.json();
+      if (data.success) {
+        setIncomeContracts(data.data || []);
+      }
+    } catch (err) {
+      console.error('获取收入合同列表失败:', err);
     }
   }, []);
 
@@ -256,8 +280,13 @@ const SporadicPurchase = () => {
 
       const body = {
         project_id: values.project_id,
+        contract_id: values.contract_id,
+        name: values.reason || '零星采购',
         reason: values.reason,
         remark: values.remark,
+        tax_type: values.tax_type || 'none',
+        tax_rate: values.tax_rate || 0,
+        total_amount: formTotalAmount,
         items: formItems
       };
 
@@ -809,7 +838,7 @@ const SporadicPurchase = () => {
               <ShoppingCartOutlined style={{ marginRight: 8 }} />
               零星采购管理
             </h2>
-            <Text type="secondary">非合同采购流程，无需关联合同</Text>
+            <Text type="secondary">需关联合同，金额不超过收入合同0.5%</Text>
           </Col>
           <Col>
             <Button 
@@ -933,9 +962,13 @@ const SporadicPurchase = () => {
                 label="关联项目"
                 rules={[{ required: true, message: '请选择项目' }]}
               >
-                <Select 
+                <Select
                   placeholder="选择项目"
-                  onChange={(val) => checkLimit(val, formItems)}
+                  onChange={(val) => {
+                    checkLimit(val, formItems);
+                    fetchIncomeContracts(val);
+                    form.setFieldsValue({ contract_id: undefined });
+                  }}
                 >
                   {projects.map(p => (
                     <Option key={p.id} value={p.id}>{p.name}</Option>
@@ -943,6 +976,29 @@ const SporadicPurchase = () => {
                 </Select>
               </Form.Item>
             </Col>
+            <Col span={12}>
+              <Form.Item
+                name="contract_id"
+                label="关联收入合同"
+                rules={[{ required: true, message: '请选择收入合同' }]}
+                tooltip="零星采购金额不得超过收入合同的0.5%"
+              >
+                <Select
+                  placeholder="请先选择项目"
+                  disabled={!incomeContracts.length}
+                  showSearch
+                  optionFilterProp="children"
+                >
+                  {incomeContracts.map(c => (
+                    <Option key={c.id} value={c.id}>
+                      {c.contract_no} - ¥{(c.contract_amount || 0).toLocaleString()}
+                    </Option>
+                  ))}
+                </Select>
+              </Form.Item>
+            </Col>
+          </Row>
+          <Row gutter={24}>
             <Col span={12}>
               <Form.Item label="预计总金额">
                 <Text strong style={{ fontSize: 18, color: limitCheck?.isExcessive ? '#ff4d4f' : '#1890ff' }}>
@@ -1040,14 +1096,30 @@ const SporadicPurchase = () => {
           <Form.Item label="含税信息" style={{ marginTop: 8 }}>
             <Row gutter={24}>
               <Col span={8}>
-                <Form.Item label="税额">
-                  <Text style={{ color: '#999' }}>自动计算</Text>
-                </Form.Item>
+                <Statistic
+                  title="税额"
+                  value={calculatedTaxAmount}
+                  prefix="¥"
+                  precision={2}
+                  valueStyle={calculatedTaxAmount > 0 ? { color: '#1890ff' } : { color: '#999' }}
+                />
               </Col>
               <Col span={8}>
-                <Form.Item label="含税金额">
-                  <Text style={{ color: '#999' }}>自动计算</Text>
-                </Form.Item>
+                <Statistic
+                  title="含税金额"
+                  value={calculatedAmountWithTax}
+                  prefix="¥"
+                  precision={2}
+                  valueStyle={{ color: '#52c41a' }}
+                />
+              </Col>
+              <Col span={8}>
+                <Statistic
+                  title="不含税金额"
+                  value={formTotalAmount}
+                  prefix="¥"
+                  precision={2}
+                />
               </Col>
             </Row>
           </Form.Item>
