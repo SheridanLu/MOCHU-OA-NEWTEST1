@@ -61,6 +61,7 @@ import CostReport from './pages/report/CostReport';
 import PaymentList from './pages/finance/PaymentList';
 import FinanceChart from './pages/finance/FinanceChart';
 import ProjectReceipt from './pages/finance/ProjectReceipt';
+import IncomeContractSplits from './pages/finance/IncomeContractSplits';
 
 // 施工管理模块
 import Milestone from './pages/construction/Milestone';
@@ -182,6 +183,7 @@ const getFilteredMenuConfig = () => {
       { key: 'labor', name: '人工费付款', path: '/finance/labor-payment' },
       { key: 'material', name: '材料款付款', path: '/finance/material-payment' },
       { key: 'receipt', name: '项目收款登记', path: '/finance/project-receipt' },
+      { key: 'splits', name: '收入合同拆分', path: '/finance/income-splits' },
       { key: 'report', name: '成本报表', path: '/finance/cost-report' },
     ]
   },
@@ -642,6 +644,9 @@ function App() {
         } />
         <Route path="/finance/cost-report" element={
           <ProtectedRoute><MainLayout><CostReport /></MainLayout></ProtectedRoute>
+        } />
+        <Route path="/finance/income-splits" element={
+          <ProtectedRoute><MainLayout><IncomeContractSplits /></MainLayout></ProtectedRoute>
         } />
         <Route path="/finance/project-receipt" element={
           <ProtectedRoute><MainLayout><ProjectReceipt /></MainLayout></ProtectedRoute>
