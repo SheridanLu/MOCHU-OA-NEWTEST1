@@ -473,6 +473,36 @@ function runDailyProgressPush() {
         } else if (analysis.status === 'slight_delay') {
           pushedCount.high++;
         }
+
+        // 同时发送站内通知
+        try {
+          const statusText = {
+            'ahead': '进度超前',
+            'on_track': '进度正常',
+            'slight_delay': '轻微滞后',
+            'serious_delay': '严重滞后',
+            'no_data': '无进度数据'
+          };
+          const notifTitle = `【偏差预警】${analysis.project_no || ''} ${analysis.deviation > 0 ? '+' : ''}${analysis.deviation}%`;
+          const notifContent = `项目: ${analysis.project_name}\n偏差: ${analysis.deviation}%\n状态: ${statusText[analysis.status] || analysis.status}`;
+          const userIds = todoIds.map(t => t.userId);
+          if (userIds.length > 0) {
+            db.prepare(`
+              INSERT INTO notifications (user_id, title, content, type, source_type, source_id)
+              SELECT ?, ?, ?, 'warning', 'progress', ?
+            `).run(userIds[0], notifTitle, notifContent, analysis.id);
+            // 批量为其他用户创建
+            const insertNotif = db.prepare(`
+              INSERT INTO notifications (user_id, title, content, type, source_type, source_id)
+              VALUES (?, ?, ?, 'warning', 'progress', ?)
+            `);
+            userIds.slice(1).forEach(uid => {
+              insertNotif.run(uid, notifTitle, notifContent, analysis.id);
+            });
+          }
+        } catch (notifErr) {
+          console.error('发送站内通知失败:', notifErr.message);
+        }
       }
     }
   }
