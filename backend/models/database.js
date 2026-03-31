@@ -1446,7 +1446,7 @@ function initDatabase() {
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (project_id) REFERENCES projects(id),
-      FOREIGN KEY (application_id) REFERENCES stock_out_applications(id),
+      FOREIGN KEY (creator_id) REFERENCES users(id)
       FOREIGN KEY (operator_id) REFERENCES users(id),
       FOREIGN KEY (creator_id) REFERENCES users(id)
     )
@@ -1630,6 +1630,25 @@ function initDatabase() {
   db.exec(`
     CREATE INDEX IF NOT EXISTS idx_stock_out_application_items_application ON stock_out_application_items(application_id)
   `);
+
+  // 出库申请多步审批流程表 (PRD 5.2: 资料员→采购→总经理)
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS stock_out_approvals (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      application_id INTEGER NOT NULL,
+      step INTEGER NOT NULL,
+      step_name TEXT NOT NULL,
+      role TEXT NOT NULL,
+      approver_id INTEGER,
+      action TEXT DEFAULT 'pending',
+      comment TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (application_id) REFERENCES stock_out_applications(id) ON DELETE CASCADE,
+      FOREIGN KEY (approver_id) REFERENCES users(id)
+    )
+  `);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_stock_out_approvals_application ON stock_out_approvals(application_id)`);
 
   // ========== Task 47: 人工费付款相关表 ==========
 
@@ -2439,5 +2458,51 @@ function initDatabase() {
     console.log('部门数据初始化跳过:', e.message);
   }
 }
+
+// ========== PRD 8.1: 收入合同拆分表 ==========
+db.exec(`
+  CREATE TABLE IF NOT EXISTS income_contract_splits (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    contract_id INTEGER NOT NULL,
+    project_id INTEGER NOT NULL,
+    task_name TEXT NOT NULL,
+    task_id INTEGER,
+    split_amount DECIMAL(15,2) NOT NULL DEFAULT 0,
+    split_rate DECIMAL(5,2) NOT NULL DEFAULT 0,
+    progress_rate DECIMAL(5,2) DEFAULT 0,
+    current_amount DECIMAL(15,2) DEFAULT 0,
+    accumulated_amount DECIMAL(15,2) DEFAULT 0,
+    sort_order INTEGER DEFAULT 0,
+    remark TEXT,
+    creator_id INTEGER,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (contract_id) REFERENCES contracts(id) ON DELETE CASCADE,
+    FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+    FOREIGN KEY (task_id) REFERENCES construction_tasks(id) ON DELETE SET NULL,
+    FOREIGN KEY (creator_id) REFERENCES users(id)
+  )
+`);
+db.exec(`CREATE INDEX IF NOT EXISTS idx_income_splits_contract ON income_contract_splits(contract_id)`);
+db.exec(`CREATE INDEX IF NOT EXISTS idx_income_splits_project ON income_contract_splits(project_id)`);
+
+// ========== 站内通知表（PRD 6.4/14） ==========
+db.exec(`
+  CREATE TABLE IF NOT EXISTS notifications (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    title TEXT NOT NULL,
+    content TEXT,
+    type TEXT DEFAULT 'info',
+    source_type TEXT,
+    source_id INTEGER,
+    is_read INTEGER DEFAULT 0,
+    read_at DATETIME,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  )
+`);
+db.exec(`CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications(user_id, is_read)`);
+db.exec(`CREATE INDEX IF NOT EXISTS idx_notifications_created ON notifications(created_at)`);
 
 module.exports = { db, initDatabase };

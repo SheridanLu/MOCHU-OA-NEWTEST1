@@ -1281,71 +1281,96 @@ router.post('/out/:id/approve', checkPermission('stock:approve'), (req, res) => 
   
   const application = db.prepare('SELECT * FROM stock_out_applications WHERE id = ?').get(id);
   if (!application) {
-    return res.status(404).json({
-      success: false,
-      message: '领用申请不存在'
-    });
+    return res.status(404).json({ success: false, message: '领用申请不存在' });
   }
   
   if (application.status !== 'pending') {
-    return res.status(400).json({
-      success: false,
-      message: '该申请已处理，无法重复审批'
-    });
+    return res.status(400).json({ success: false, message: '该申请已处理，无法重复审批' });
   }
   
   try {
+    // PRD 5.2: 三步审批 - 资料员(ARCHIVIST)→采购(PURCHASE)→总经理(GM)
+    const steps = [
+      { step: 1, name: '资料员审批', role: 'ARCHIVIST' },
+      { step: 2, name: '采购审批', role: 'PURCHASE' },
+      { step: 3, name: '总经理审批', role: 'GM' }
+    ];
+    
     const transaction = db.transaction(() => {
-      // 获取申请明细
-      const items = db.prepare(`
-        SELECT * FROM stock_out_application_items WHERE application_id = ?
-      `).all(id);
+      // 检查是否已有审批流程记录
+      const existingApprovals = db.prepare('SELECT * FROM stock_out_approvals WHERE application_id = ?').all(id);
       
-      if (items.length === 0) {
-        throw new Error('申请明细为空');
+      if (existingApprovals.length === 0) {
+        // 首次审批：初始化审批流程
+        steps.forEach(s => {
+          db.prepare(`
+            INSERT INTO stock_out_approvals (application_id, step, step_name, role, action)
+            VALUES (?, ?, ?, ?, 'pending')
+          `).run(id, s.step, s.name, s.role);
+        });
       }
       
-      // 再次检查库存是否充足（防止审批时库存已被占用）
-      items.forEach(item => {
-        const inventory = db.prepare(`
-          SELECT * FROM inventory 
-          WHERE id = ? OR (material_name = ? AND (specification = ? OR (? IS NULL AND specification IS NULL)))
-        `).get(item.material_id, item.material_name, item.specification, item.specification);
-        
-        if (!inventory) {
-          throw new Error(`物资"${item.material_name}"不存在于库存中`);
-        }
-        
-        if (inventory.available_quantity < item.quantity) {
-          throw new Error(`物资"${item.material_name}"库存不足，当前可领数量: ${inventory.available_quantity}，申请数量: ${item.quantity}`);
-        }
-      });
+      // 找到当前待审批步骤
+      const currentStep = db.prepare(`
+        SELECT * FROM stock_out_approvals 
+        WHERE application_id = ? AND action = 'pending'
+        ORDER BY step ASC LIMIT 1
+      `).get(id);
       
-      // 扣减库存
-      items.forEach(item => {
-        const inventory = db.prepare(`
-          SELECT * FROM inventory 
-          WHERE id = ? OR (material_name = ? AND (specification = ? OR (? IS NULL AND specification IS NULL)))
-          LIMIT 1
-        `).get(item.material_id, item.material_name, item.specification, item.specification);
+      if (!currentStep) {
+        throw new Error('没有待审批的步骤');
+      }
+      
+      // 更新当前步骤为已通过
+      db.prepare(`
+        UPDATE stock_out_approvals SET
+          action = 'approved', approver_id = ?, comment = ?, updated_at = CURRENT_TIMESTAMP
+        WHERE id = ?
+      `).run(userId, comment || '', currentStep.id);
+      
+      // 检查是否是最后一步
+      const nextStep = db.prepare(`
+        SELECT * FROM stock_out_approvals 
+        WHERE application_id = ? AND action = 'pending'
+        ORDER BY step ASC LIMIT 1
+      `).get(id);
+      
+      if (!nextStep) {
+        // 全部审批通过 - 执行出库操作
+        const items = db.prepare(`
+          SELECT * FROM stock_out_application_items WHERE application_id = ?
+        `).all(id);
         
-        if (inventory) {
-          const beforeQuantity = inventory.quantity;
-          const beforeAvailable = inventory.available_quantity;
-          const newQuantity = beforeQuantity - item.quantity;
-          const newAvailable = beforeAvailable - item.quantity;
+        if (items.length === 0) {
+          throw new Error('申请明细为空');
+        }
+        
+        // 检查并扣减库存
+        items.forEach(item => {
+          const inventory = db.prepare(`
+            SELECT * FROM inventory 
+            WHERE id = ? OR (material_name = ? AND (specification = ? OR (? IS NULL AND specification IS NULL)))
+            LIMIT 1
+          `).get(item.material_id, item.material_name, item.specification, item.specification);
           
-          // 更新库存
+          if (!inventory) {
+            throw new Error(`物资"${item.material_name}"不存在于库存中`);
+          }
+          
+          if (inventory.available_quantity < item.quantity) {
+            throw new Error(`物资"${item.material_name}"库存不足`);
+          }
+          
+          const newQuantity = inventory.quantity - item.quantity;
+          const newAvailable = inventory.available_quantity - item.quantity;
+          
           db.prepare(`
             UPDATE inventory SET
-              quantity = ?,
-              available_quantity = ?,
-              last_out_date = DATE('now'),
-              updated_at = CURRENT_TIMESTAMP
+              quantity = ?, available_quantity = ?,
+              last_out_date = DATE('now'), updated_at = CURRENT_TIMESTAMP
             WHERE id = ?
           `).run(newQuantity, newAvailable, inventory.id);
           
-          // 记录库存日志
           db.prepare(`
             INSERT INTO inventory_logs (
               inventory_id, material_name, specification, change_type,
@@ -1354,60 +1379,36 @@ router.post('/out/:id/approve', checkPermission('stock:approve'), (req, res) => 
               stock_out_id, operator_id, operator_name, remark
             ) VALUES (?, ?, ?, 'out', ?, ?, ?, ?, ?, ?, ?, ?, ?)
           `).run(
-            inventory.id,
-            inventory.material_name,
-            inventory.specification,
-            item.quantity,
-            beforeQuantity,
-            newQuantity,
-            beforeAvailable,
-            newAvailable,
-            id,
-            userId,
-            userName,
-            `领用出库 - 申请单号: ${application.application_no}`
+            inventory.id, inventory.material_name, inventory.specification,
+            item.quantity, inventory.quantity, newQuantity,
+            inventory.available_quantity, newAvailable,
+            id, userId, userName, `领用出库 - ${application.application_no}`
           );
-        }
-      });
-      
-      // 更新申请状态
-      db.prepare(`
-        UPDATE stock_out_applications SET
-          status = 'approved',
-          approver_id = ?,
-          approve_comment = ?,
-          approved_at = CURRENT_TIMESTAMP,
-          updated_at = CURRENT_TIMESTAMP
-        WHERE id = ?
-      `).run(userId, comment || null, id);
+        });
+        
+        db.prepare(`
+          UPDATE stock_out_applications SET
+            status = 'approved', approver_id = ?, approve_comment = ?,
+            approved_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
+          WHERE id = ?
+        `).run(userId, comment || null, id);
+      }
+      // 如果还有下一步，状态保持pending，等下一步审批
     });
     
     transaction();
     
-    // 获取更新后的申请详情
-    const updatedApplication = db.prepare(`
-      SELECT sa.*, 
-             p.name as project_name, 
-             u.real_name as applicant_name,
-             approver.real_name as approver_name
-      FROM stock_out_applications sa
-      LEFT JOIN projects p ON sa.project_id = p.id
-      LEFT JOIN users u ON sa.applicant_id = u.id
-      LEFT JOIN users approver ON sa.approver_id = approver.id
-      WHERE sa.id = ?
-    `).get(id);
+    const updated = db.prepare('SELECT * FROM stock_out_applications WHERE id = ?').get(id);
+    const isFinal = updated.status === 'approved';
     
     res.json({
       success: true,
-      message: '审批通过，库存已扣减',
-      data: updatedApplication
+      message: isFinal ? '审批通过，库存已扣减' : `${steps.find(s => s.step === (steps.findIndex(s => s.role === 'GM') > 0 ? 0 : 0))?.name || '下一步'}审批通过`,
+      data: updated
     });
   } catch (error) {
     console.error('审批失败:', error);
-    res.status(500).json({
-      success: false,
-      message: error.message || '审批失败'
-    });
+    res.status(500).json({ success: false, message: error.message || '审批失败' });
   }
 });
 
@@ -1439,15 +1440,40 @@ router.post('/out/:id/reject', checkPermission('stock:approve'), (req, res) => {
   }
   
   try {
-    db.prepare(`
-      UPDATE stock_out_applications SET
-        status = 'rejected',
-        approver_id = ?,
-        reject_reason = ?,
-        rejected_at = CURRENT_TIMESTAMP,
-        updated_at = CURRENT_TIMESTAMP
-      WHERE id = ?
-    `).run(userId, reason || null, id);
+    const transaction = db.transaction(() => {
+      // 记录到审批流程表
+      const currentStep = db.prepare(`
+        SELECT * FROM stock_out_approvals 
+        WHERE application_id = ? AND action = 'pending'
+        ORDER BY step ASC LIMIT 1
+      `).get(id);
+      
+      if (currentStep) {
+        db.prepare(`
+          UPDATE stock_out_approvals SET
+            action = 'rejected', approver_id = ?, comment = ?, updated_at = CURRENT_TIMESTAMP
+          WHERE id = ?
+        `).run(userId, reason || '', currentStep.id);
+      }
+      
+      // 拒绝所有后续待审批步骤
+      db.prepare(`
+        UPDATE stock_out_approvals SET action = 'rejected', updated_at = CURRENT_TIMESTAMP
+        WHERE application_id = ? AND action = 'pending'
+      `).run(id);
+      
+      db.prepare(`
+        UPDATE stock_out_applications SET
+          status = 'rejected',
+          approver_id = ?,
+          reject_reason = ?,
+          rejected_at = CURRENT_TIMESTAMP,
+          updated_at = CURRENT_TIMESTAMP
+        WHERE id = ?
+      `).run(userId, reason || null, id);
+    });
+    
+    transaction();
     
     // 获取更新后的申请详情
     const updatedApplication = db.prepare(`
