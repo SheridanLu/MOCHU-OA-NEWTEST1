@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate, Link, useLocation } from 'react-router-dom';
 import { useState, useEffect } from 'react';
+import NotificationBell from './components/NotificationBell';
 import { Drawer, Button } from 'antd';
 import { MenuOutlined } from '@ant-design/icons';
 import './App.css';
@@ -16,6 +17,7 @@ import PermissionManage from './pages/system/PermissionManage';
 import AuditLog from './pages/system/AuditLog';
 import AnnouncementList from './pages/system/AnnouncementList';
 import Attachments from './pages/system/Attachments';
+import Notifications from './pages/system/Notifications';
 
 // 通讯录
 import Directory from './pages/directory/Directory';
@@ -110,6 +112,7 @@ const getFilteredMenuConfig = () => {
     { key: 'todos', name: '我的待办', path: '/todos' },
     { key: 'announcements', name: '通知公告', path: '/system/announcements' },
     { key: 'attachments', name: '附件管理', path: '/system/attachments' },
+    { key: 'notifications', name: '消息通知', path: '/system/notifications' },
     { key: 'audit', name: '操作日志', path: '/system/audit' }
   );
 
@@ -414,6 +417,7 @@ function MainLayout({ children }) {
             <h1>{isMobile ? 'OA' : 'MOCHU OA 办公系统'}</h1>
           </div>
           <div className="header-right">
+            <NotificationBell />
             {!isMobile && (
               <span className="user-info">
                 欢迎，{user.real_name || user.username}
@@ -527,6 +531,9 @@ function App() {
         } />
         <Route path="/system/attachments" element={
           <ProtectedRoute><MainLayout><Attachments /></MainLayout></ProtectedRoute>
+        } />
+        <Route path="/system/notifications" element={
+          <ProtectedRoute><MainLayout><Notifications /></MainLayout></ProtectedRoute>
         } />
         <Route path="/system/audit" element={
           <ProtectedRoute><MainLayout><AuditLog /></MainLayout></ProtectedRoute>
