@@ -1,5 +1,23 @@
 [
-  {"id": 1, "task": "实现项目立项审批流程", "status": "pending", "desc": "采购员→财务→总经理，建立 projects 与 approvals 表"},
-  {"id": 2, "task": "实现收入合同管理模块", "status": "pending", "desc": "合同编号自动生成，支持拆分"},
-  {"id": 3, "task": "实现支出合同超量校验", "status": "pending", "desc": "金额超过 1.5% 自动标记超量并进入审批"}
+  {"id": 1, "task": "项目立项基础", "category": "Project", "status": "pending", "desc": "创建 projects 表，实现采购员提交立项"},
+  {"id": 2, "task": "项目立项审批流程", "category": "Approval", "status": "pending", "desc": "实现采购员→财务→总经理审批逻辑"},
+  {"id": 3, "task": "虚拟项目转实体项目", "category": "Project", "status": "pending", "desc": "处理中标转换逻辑与文件归集"},
+  {"id": 4, "task": "收入合同开发", "category": "Contract", "status": "pending", "desc": "收入合同录入与金额拆分"},
+  {"id": 5, "task": "支出合同开发", "category": "Contract", "status": "pending", "desc": "合同字段与分类管理"},
+  {"id": 6, "task": "合同审批流程", "category": "Approval", "status": "pending", "desc": "财务→法务→总经理审批"},
+  {"id": 7, "task": "合同超量校验", "category": "Logic", "status": "pending", "desc": "1.5% 超量校验引擎"},
+  {"id": 8, "task": "批量采购管理", "category": "Purchase", "status": "pending", "desc": "多清单汇总、批量订单生成"},
+  {"id": 9, "task": "零星采购管理", "category": "Purchase", "status": "pending", "desc": "限额 0.5% 零星采购流程"},
+  {"id": 10, "task": "物资入库管理", "category": "Inventory", "status": "pending", "desc": "创建入库单与库存同步"},
+  {"id": 11, "task": "物资领用审批", "category": "Approval", "status": "pending", "desc": "资料员→采购→总经理审批"},
+  {"id": 12, "task": "项目里程碑管理", "category": "Milestone", "status": "pending", "desc": "计划与实际时间设置"},
+  {"id": 13, "task": "甘特图与进度填报", "category": "Project", "status": "pending", "desc": "任务依赖与百分比进度"},
+  {"id": 14, "task": "现场签证与变更管理", "category": "Change", "status": "pending", "desc": "签证内容与金额审批"},
+  {"id": 15, "task": "甲方变更审批", "category": "Change", "status": "pending", "desc": "变更预算员→总经理流程"},
+  {"id": 16, "task": "收入对账与回款统计", "category": "Finance", "status": "pending", "desc": "进度比例与累计回款计算"},
+  {"id": 17, "task": "竣工图纸与资料归档", "category": "Archive", "status": "pending", "desc": "文档分类与版本管理"},
+  {"id": 18, "task": "劳务结算管理", "category": "Finance", "status": "pending", "desc": "结算金额与支付记录"},
+  {"id": 19, "task": "审计日志审计", "category": "Audit", "status": "pending", "desc": "操作日志记录与导出"},
+  {"id": 20, "task": "价格预警引擎", "category": "Purchase", "status": "pending", "desc": "基准价 10%/20% 预警"},
+  {"id": 21, "task": "供应商管理系统", "category": "Supply", "status": "pending", "desc": "供应商状态与银行信息管理"}
 ]
