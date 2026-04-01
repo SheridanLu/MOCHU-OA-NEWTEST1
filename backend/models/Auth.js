@@ -86,7 +86,7 @@ class LoginAttempt {
       INSERT INTO login_attempts (user_id, account, attempt_count, attempt_type, ip_address, success, last_attempt)
       VALUES (?, ?, 1, ?, ?, ?, CURRENT_TIMESTAMP)
     `);
-    stmt.run(userId, account, attemptType, ipAddress || 'unknown', success ? 1 : 0);
+    stmt.run(userId || 0, account, attemptType, ipAddress || 'unknown', success ? 1 : 0);
   }
 
   // 获取最近失败的登录次数（30分钟内）
