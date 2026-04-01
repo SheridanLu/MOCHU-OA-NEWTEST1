@@ -1,0 +1,5 @@
+[
+  {"id": 1, "task": "实现项目立项审批流程", "status": "pending", "desc": "采购员→财务→总经理，建立 projects 与 approvals 表"},
+  {"id": 2, "task": "实现收入合同管理模块", "status": "pending", "desc": "合同编号自动生成，支持拆分"},
+  {"id": 3, "task": "实现支出合同超量校验", "status": "pending", "desc": "金额超过 1.5% 自动标记超量并进入审批"}
+]
